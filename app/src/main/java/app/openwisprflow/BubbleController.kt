@@ -51,7 +51,7 @@ class BubbleController(
         setPadding(padding, padding, padding, padding)
         contentDescription = context.getString(R.string.bubble_description)
         elevation = 6f * context.resources.displayMetrics.density
-        // Partly transparent while idle, so the content underneath stays visible.
+        // Half transparent, so the content underneath stays visible.
         alpha = BUBBLE_ALPHA
         setOnClickListener { onTap() }
         setOnTouchListener(DragListener())
@@ -76,8 +76,6 @@ class BubbleController(
         }
         view.setImageResource(icon)
         view.setBackgroundResource(background)
-        // See-through only while idle; a live recording should be unmistakable.
-        view.alpha = if (state == State.IDLE) BUBBLE_ALPHA else 1f
         view.contentDescription = context.getString(description)
     }
 
@@ -154,7 +152,7 @@ class BubbleController(
 
     private companion object {
         const val BUBBLE_SIZE_DP = 52
-        const val BUBBLE_ALPHA = 0.7f
+        const val BUBBLE_ALPHA = 0.5f
 
         /** Top of the bubble as a fraction of the window height; 1372 px on a 2340 px screen. */
         const val DEFAULT_Y_FRACTION = 0.5863f
