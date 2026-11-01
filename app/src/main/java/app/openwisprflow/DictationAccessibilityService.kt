@@ -3,6 +3,7 @@ package app.openwisprflow
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.InputMethod
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
@@ -20,18 +21,20 @@ import java.util.concurrent.Executors
  * API 33), shows the bubble while a dictation-capable editor has an input connection and the
  * keyboard is open, and inserts text with commitText.
  *
- * Build step 3: a bubble tap starts recording through [CaptureService], straight from the
+ * Build step 4: a bubble tap starts recording through [CaptureService], straight from the
  * accessibility service with no activity in between. A second tap stops and submits; a long press
- * cancels. Until transcription arrives in step 4 the "result" is a line describing the take. It is
- * inserted only if the editor is still the one the take started in (HLD section 4); otherwise it
- * goes to the copy preview.
+ * cancels. The take is transcribed by google/gemini-3.5-transcribe through AI Gateway, with the
+ * user's own key. The transcript is inserted only if the editor is still the one the take started
+ * in (HLD section 4); otherwise it goes to the copy preview.
  *
- * All state lives on the main thread. Reads of the target field run on [worker].
+ * All state lives on the main thread. Reads of the target field run on [worker]; network calls
+ * run on [network].
  */
 class DictationAccessibilityService : AccessibilityService(), CaptureService.Listener {
 
     private val main = Handler(Looper.getMainLooper())
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
+    private val network: ExecutorService = Executors.newSingleThreadExecutor()
     private var bubble: BubbleController? = null
     private var preview: PreviewController? = null
 
@@ -49,6 +52,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
 
     private class Session(val id: Long, var start: EditorSnapshot) {
         var recording = true
+        var call: TranscriptionCall? = null
         var committed = false
         var awaitingConfirm = false
         var insertAt: Int? = null
@@ -154,6 +158,12 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
 
     private fun startDictation() {
         preview?.dismiss()
+        if (!ApiKeyStore.has(this)) {
+            // Without a key the bubble opens the setup screen instead of recording.
+            Toast.makeText(this, R.string.api_key_needed, Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, R.string.mic_permission_needed, Toast.LENGTH_LONG).show()
             return
@@ -190,8 +200,49 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         s.recording = false
         bubble?.setState(BubbleController.State.PROCESSING)
         Log.d(TAG, "session ${s.id} take ${take.durationMs} ms, peak ${take.peak}")
-        // Stands in for transcription until build step 4.
-        onResult(s, RESULT_FORMAT.format(take.durationMs / 1000.0, take.peak))
+        transcribe(s, take)
+    }
+
+    private fun transcribe(s: Session, take: Take) {
+        val key = ApiKeyStore.get(this)
+        if (key == null) {
+            endSession(s)
+            Toast.makeText(this, R.string.api_key_needed, Toast.LENGTH_LONG).show()
+            return
+        }
+        // Smart mode removes fillers in the recognizer while there is no cleanup step (step 6).
+        val call = TranscriptionCall(key, take.file, TranscriptionOptions(TranscriptionOptions.SMART))
+        s.call = call
+        network.execute {
+            val started = System.currentTimeMillis()
+            val result = runCatching { call.execute() }
+            val elapsed = System.currentTimeMillis() - started
+            main.post {
+                if (session !== s) return@post // Cancelled while transcribing.
+                s.call = null
+                result.fold(
+                    onSuccess = { transcript ->
+                        Log.d(TAG, "session ${s.id} transcribed in $elapsed ms, ${transcript.text.length} chars")
+                        if (transcript.text.isBlank()) {
+                            endSession(s)
+                            Toast.makeText(this, R.string.nothing_heard, Toast.LENGTH_SHORT).show()
+                        } else {
+                            onResult(s, transcript.text)
+                        }
+                    },
+                    onFailure = { error ->
+                        val status = (error as? GatewayException)?.status
+                        Log.w(TAG, "session ${s.id} transcription failed: ${error.javaClass.simpleName} $status")
+                        endSession(s)
+                        Toast.makeText(
+                            this,
+                            getString(R.string.transcription_failed, error.message ?: error.javaClass.simpleName),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    },
+                )
+            }
+        }
     }
 
     override fun onCaptureFailed(sessionId: Long, error: Throwable) {
@@ -232,7 +283,9 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         }
     }
 
-    private fun commit(s: Session, text: String) {
+    private fun commit(s: Session, dictated: String) {
+        // The guard has just confirmed the text before the cursor matches the snapshot.
+        val text = TextJoin.forInsertion(s.start.context?.before, dictated)
         val connection = inputMethod?.currentInputConnection
         if (s.committed || connection == null) {
             showPreview(s, text, "no editor")
@@ -277,6 +330,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         val s = session ?: return
         Log.d(TAG, "session ${s.id} cancelled")
         if (s.recording) CaptureService.cancel(this)
+        s.call?.cancel()
         endSession(s)
     }
 
@@ -299,6 +353,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         if (CaptureService.listener === this) CaptureService.listener = null
         main.removeCallbacksAndMessages(null)
         worker.shutdownNow()
+        network.shutdownNow()
         preview?.dismiss()
         bubble?.hide()
         preview = null
@@ -308,7 +363,6 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
 
     private companion object {
         const val TAG = "openWisprFlow"
-        const val RESULT_FORMAT = "Recorded %.1f s, peak %d "
         const val COMMIT_CONFIRM_TIMEOUT_MS = 1_000L
     }
 }

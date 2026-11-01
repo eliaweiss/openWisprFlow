@@ -8,13 +8,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import java.io.File
+import kotlin.concurrent.thread
 
 class MainActivity : Activity() {
 
@@ -22,7 +26,10 @@ class MainActivity : Activity() {
     private lateinit var micStatus: TextView
     private lateinit var allowMicrophone: Button
     private lateinit var diagnostics: TextView
+    private lateinit var apiKey: EditText
+    private lateinit var apiKeyStatus: TextView
     private var player: MediaPlayer? = null
+    private val main = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +48,45 @@ class MainActivity : Activity() {
             )
         }
         findViewById<Button>(R.id.play_last_take).setOnClickListener { playLastTake() }
+
+        apiKey = findViewById(R.id.api_key)
+        apiKeyStatus = findViewById(R.id.api_key_status)
+        findViewById<Button>(R.id.api_key_save).setOnClickListener {
+            val key = apiKey.text.toString().trim()
+            if (key.isNotEmpty()) ApiKeyStore.set(this, key)
+            apiKey.text.clear()
+            refresh()
+        }
+        findViewById<Button>(R.id.api_key_remove).setOnClickListener {
+            ApiKeyStore.clear(this)
+            refresh()
+        }
+        findViewById<Button>(R.id.api_key_test).setOnClickListener { testKey() }
+    }
+
+    /** Transcribes one second of silence: proves the key works and the model is available to it. */
+    private fun testKey() {
+        val key = ApiKeyStore.get(this)
+        if (key == null) {
+            apiKeyStatus.setText(R.string.api_key_none)
+            return
+        }
+        apiKeyStatus.setText(R.string.api_key_testing)
+        val silence = File(cacheDir, "silence.wav")
+        thread(name = "openWisprFlow-key-test") {
+            val result = runCatching {
+                WavWriter(silence, AudioCapture.SAMPLE_RATE).use { it.write(ShortArray(AudioCapture.SAMPLE_RATE), AudioCapture.SAMPLE_RATE) }
+                TranscriptionCall(key, silence, TranscriptionOptions(TranscriptionOptions.SMART)).execute()
+            }
+            silence.delete()
+            main.post {
+                if (isDestroyed) return@post
+                apiKeyStatus.text = result.fold(
+                    onSuccess = { getString(R.string.api_key_test_ok) },
+                    onFailure = { getString(R.string.api_key_test_failed, it.message ?: it.javaClass.simpleName) },
+                )
+            }
+        }
     }
 
     override fun onResume() {
@@ -65,6 +111,7 @@ class MainActivity : Activity() {
         micStatus.visibility = if (micGranted) View.VISIBLE else View.GONE
         allowMicrophone.visibility = if (micGranted) View.GONE else View.VISIBLE
         diagnostics.text = MicDiagnostics.summary(this)
+        apiKeyStatus.setText(if (ApiKeyStore.has(this)) R.string.api_key_saved else R.string.api_key_none)
     }
 
     private fun playLastTake() {

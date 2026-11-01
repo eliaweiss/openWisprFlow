@@ -23,8 +23,23 @@
     <string name="status_disabled">The dictation service is off.</string>
     <string name="open_accessibility_settings">Open accessibility settings</string>
     <string name="setup_steps">To turn it on: Accessibility → openWisprFlow dictation → Use openWisprFlow dictation.\n\nIf the switch is greyed out (\"restricted setting\"), go to App info → ⋮ menu → Allow restricted settings, then try again.</string>
-    <string name="build_step_note">Build step 3: tap the bubble to record, tap again (■) to stop, long press to cancel. A line describing the take is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy. Transcription comes in step 4.</string>
+    <string name="build_step_note">Build step 4: tap the bubble to record, tap again (■) to stop, long press to cancel. The transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy. Cleanup comes in step 6.</string>
     <string name="allow_microphone">Allow microphone</string>
+
+    <string name="api_key_title">AI Gateway API key</string>
+    <string name="api_key_explainer">Your own Vercel AI Gateway key. It is stored encrypted on this phone and sent only to ai-gateway.vercel.sh. Audio and field text go there only while you dictate.</string>
+    <string name="api_key_hint">Paste your API key</string>
+    <string name="api_key_save">Save</string>
+    <string name="api_key_test">Test</string>
+    <string name="api_key_remove">Remove</string>
+    <string name="api_key_none">No key saved.</string>
+    <string name="api_key_saved">Key saved.</string>
+    <string name="api_key_testing">Testing…</string>
+    <string name="api_key_test_ok">The key works and google/gemini-3.5-transcribe answered.</string>
+    <string name="api_key_test_failed">Test failed: %1$s</string>
+    <string name="api_key_needed">Add your AI Gateway API key in openWisprFlow first.</string>
+    <string name="nothing_heard">Nothing was heard.</string>
+    <string name="transcription_failed">Transcription failed: %1$s</string>
     <string name="mic_granted">Microphone access is allowed.</string>
     <string name="play_last_take">Play last take</string>
     <string name="no_take">No take recorded yet.</string>
