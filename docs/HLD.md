@@ -622,6 +622,15 @@ Insertion confirmation
 End of speech to insertion, p50 and p95
 ```
 
+### Read aloud
+
+Text on screen can be read aloud with `google/gemini-3.8-flash-lite-tts`, through AI Gateway's REST speech endpoint (`POST /v4/ai/speech-model`, the model in an `ai-model-id` header, `{text, voice, outputFormat: "wav"}` in the body, base64 WAV in the reply). Voice `Kore`; selections over 5,000 characters are cut, with a notice.
+
+- **Selected text:** a "Read aloud" item in Android's text-selection menu (`ACTION_PROCESS_TEXT`). An invisible activity takes the text, starts the reading and closes, so the other app keeps its selection and stays in front.
+- **Text that cannot be selected** (WhatsApp messages, for example): copy it, then press the system accessibility button. Android lets only the app with window focus read the clipboard, so the button opens an invisible activity that reads it once it has focus, then closes.
+
+The accessibility button was first meant to read the current selection, but opening it clears the selection, hence the two paths. One reading plays at a time; pressing the button again while loading or speaking stops it. The text is sent only for that reading and only its length is logged.
+
 ## 6. Dictionary, snippets, and history
 
 Dictionary entry:

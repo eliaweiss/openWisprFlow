@@ -1,5 +1,6 @@
 package app.openwisprflow
 
+import android.accessibilityservice.AccessibilityButtonController
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.InputMethod
 import android.Manifest
@@ -35,6 +36,8 @@ import java.util.concurrent.Executors
  * A long press on the idle bubble starts a translate take instead: the transcript is cleaned up
  * and translated into the language set on the setup screen, then inserted the same way.
  *
+ * The system accessibility button reads the clipboard aloud ([ReadAloud]); a second press stops it.
+ *
  * With live transcription on, audio also streams to google/gemini-3.5-transcribe-live while the
  * user talks and the text appears above the bubble ([LiveTextController]); its final transcript
  * replaces the upload after stop. Any streaming failure falls back to uploading the take.
@@ -50,6 +53,12 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     private var bubble: BubbleController? = null
     private var preview: PreviewController? = null
     private var liveText: LiveTextController? = null
+    private val buttonCallback = object : AccessibilityButtonController.AccessibilityButtonCallback() {
+        override fun onClicked(controller: AccessibilityButtonController) {
+            Log.d(TAG, "accessibility button: ${if (ReadAloud.isBusy) "stop reading" else "read clipboard"}")
+            if (ReadAloud.isBusy) ReadAloud.stop() else ClipboardReadActivity.start(this@DictationAccessibilityService)
+        }
+    }
 
     /** Bumped on every new editor and on finish; a restart in the same editor does not bump it. */
     private var editorGeneration = 0L
@@ -95,6 +104,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         bubble = BubbleController(this, ::onBubbleTap, ::onBubbleLongPress)
         preview = PreviewController(this)
         liveText = LiveTextController(this)
+        accessibilityButtonController.registerAccessibilityButtonCallback(buttonCallback)
         CaptureService.listener = this
         refreshKeyboardVisible()
     }
@@ -559,6 +569,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         Log.d(TAG, "service destroyed")
         cancelSession()
         if (CaptureService.listener === this) CaptureService.listener = null
+        accessibilityButtonController.unregisterAccessibilityButtonCallback(buttonCallback)
         main.removeCallbacksAndMessages(null)
         worker.shutdownNow()
         network.shutdownNow()

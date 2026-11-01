@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Read-aloud strings (selection menu and accessibility button), kept apart from strings.xml. -->
+<resources>
+    <string name="read_aloud_label">Read aloud</string>
+    <string name="speech_nothing_to_read">Nothing to read. Copy some text first, then press the accessibility button.</string>
+    <string name="speech_loading">Reading aloud…</string>
+    <string name="speech_truncated">Reading the first %1$d characters aloud.</string>
+    <string name="speech_failed">Read aloud failed: %1$s</string>
+</resources>
