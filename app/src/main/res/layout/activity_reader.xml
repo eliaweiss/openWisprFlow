@@ -11,34 +11,19 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
-    <LinearLayout
+    <!-- Shown only for summarizing, nothing to read, or an error; hidden while reading. -->
+    <TextView
+        android:id="@+id/reader_status"
+        style="@style/Owf.Caption"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/text_gap"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <ProgressBar
-            android:id="@+id/reader_progress"
-            style="@android:style/Widget.Material.ProgressBar.Small"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_marginEnd="8dp"
-            android:indeterminateTint="@color/accent" />
-
-        <TextView
-            android:id="@+id/reader_status"
-            style="@style/Owf.Caption"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1" />
-    </LinearLayout>
+        android:layout_marginTop="@dimen/text_gap" />
 
     <ScrollView
         android:id="@+id/reader_scroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/item_gap"
+        android:layout_marginTop="12dp"
         android:fadeScrollbars="false"
         android:visibility="gone">
 
@@ -51,64 +36,86 @@
             android:textSize="16sp" />
     </ScrollView>
 
-    <LinearLayout
-        android:id="@+id/reader_controls"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/item_gap"
-        android:gravity="center"
-        android:orientation="horizontal"
-        android:visibility="gone">
-
-        <ImageButton
-            android:id="@+id/reader_previous"
-            android:layout_width="56dp"
-            android:layout_height="48dp"
-            android:background="@drawable/button_tonal"
-            android:contentDescription="@string/reader_previous"
-            android:src="@drawable/ic_skip_previous" />
-
-        <ImageButton
-            android:id="@+id/reader_play"
-            android:layout_width="72dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="12dp"
-            android:layout_marginEnd="12dp"
-            android:background="@drawable/button_filled"
-            android:contentDescription="@string/reader_pause"
-            android:src="@drawable/ic_pause"
-            android:tint="@color/button_filled_text" />
-
-        <ImageButton
-            android:id="@+id/reader_next"
-            android:layout_width="56dp"
-            android:layout_height="48dp"
-            android:background="@drawable/button_tonal"
-            android:contentDescription="@string/reader_next"
-            android:src="@drawable/ic_skip_next" />
-    </LinearLayout>
-
+    <!-- One row: progress, previous, play/pause, next, then copy and close. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:gravity="end"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/reader_copy"
-            style="@style/Owf.Button.Text"
+        <LinearLayout
+            android:id="@+id/reader_controls"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:enabled="false"
-            android:text="@string/summary_copy" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="invisible">
 
-        <Button
+            <ImageButton
+                android:id="@+id/reader_previous"
+                android:layout_width="48dp"
+                android:layout_height="44dp"
+                android:background="@drawable/button_tonal"
+                android:contentDescription="@string/reader_previous"
+                android:src="@drawable/ic_skip_previous" />
+
+            <FrameLayout
+                android:layout_width="56dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp">
+
+                <ImageButton
+                    android:id="@+id/reader_play"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/button_filled"
+                    android:contentDescription="@string/reader_pause"
+                    android:src="@drawable/ic_pause"
+                    android:tint="@color/button_filled_text" />
+
+                <!-- While a sentence is loading, a spinner sits on the play button. -->
+                <ProgressBar
+                    android:id="@+id/reader_progress"
+                    style="@android:style/Widget.Material.ProgressBar.Small"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="@color/button_filled_text"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <ImageButton
+                android:id="@+id/reader_next"
+                android:layout_width="48dp"
+                android:layout_height="44dp"
+                android:background="@drawable/button_tonal"
+                android:contentDescription="@string/reader_next"
+                android:src="@drawable/ic_skip_next" />
+        </LinearLayout>
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <ImageButton
+            android:id="@+id/reader_copy"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/button_text"
+            android:contentDescription="@string/summary_copy"
+            android:enabled="false"
+            android:src="@drawable/ic_copy" />
+
+        <ImageButton
             android:id="@+id/reader_close"
-            style="@style/Owf.Button.Text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="@string/summary_close" />
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/button_text"
+            android:contentDescription="@string/summary_close"
+            android:src="@drawable/ic_close_themed" />
     </LinearLayout>
 </LinearLayout>

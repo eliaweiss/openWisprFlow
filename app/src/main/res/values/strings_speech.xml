@@ -14,10 +14,6 @@
 
     <string name="reader_title">Read aloud</string>
     <string name="reader_preparing">Preparing…</string>
-    <string name="reader_loading">Loading sentence %1$d of %2$d…</string>
-    <string name="reader_playing">Sentence %1$d of %2$d</string>
-    <string name="reader_paused">Paused at sentence %1$d of %2$d</string>
-    <string name="reader_done">Finished</string>
     <string name="reader_previous">Previous sentence</string>
     <string name="reader_next">Next sentence</string>
     <string name="reader_pause">Pause</string>

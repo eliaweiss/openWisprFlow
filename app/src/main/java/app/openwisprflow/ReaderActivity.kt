@@ -10,7 +10,6 @@ import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
 import android.util.Log
 import android.view.View
-import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -42,7 +41,7 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
     private lateinit var body: TextView
     private lateinit var controls: View
     private lateinit var play: ImageButton
-    private lateinit var copy: Button
+    private lateinit var copy: ImageButton
 
     private val entry get() = componentName.className.substringAfterLast('.')
     private val summarize get() = entry == "SummarizeSelection" || entry == "SummarizeClipboard"
@@ -67,7 +66,7 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
         copy = findViewById(R.id.reader_copy)
 
         title.setText(if (summarize) R.string.summary_title else R.string.reader_title)
-        status.setText(R.string.reader_preparing)
+        showStatus(getString(R.string.reader_preparing))
 
         // The text scrolls inside the pop-up beyond 55% of the screen height.
         val maxHeight = (resources.displayMetrics.heightPixels * 0.55f).toInt()
@@ -75,7 +74,7 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
             if (scroll.height > maxHeight) scroll.layoutParams = scroll.layoutParams.apply { height = maxHeight }
         }
 
-        findViewById<Button>(R.id.reader_close).setOnClickListener { finish() }
+        findViewById<ImageButton>(R.id.reader_close).setOnClickListener { finish() }
         findViewById<ImageButton>(R.id.reader_previous).setOnClickListener { if (owns()) SentencePlayer.previous() }
         findViewById<ImageButton>(R.id.reader_next).setOnClickListener { if (owns()) SentencePlayer.next() }
         play.setOnClickListener { if (owns()) SentencePlayer.togglePause() else split?.let(::read) }
@@ -108,7 +107,7 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
             read(Sentences.split(text))
             return
         }
-        status.text = getString(R.string.summary_working, "%,d".format(text.length))
+        showStatus(getString(R.string.summary_working, "%,d".format(text.length)))
         val c = SummaryCall(key, text)
         summaryCall = c
         thread(name = "openWisprFlow-summary") {
@@ -137,6 +136,7 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
         val key = ApiKeyStore.get(this) ?: return fail(getString(R.string.api_key_needed))
         split = s
         body.setText(s.text, TextView.BufferType.SPANNABLE)
+        showStatus(null)
         scroll.visibility = View.VISIBLE
         controls.visibility = View.VISIBLE
         copy.isEnabled = true
@@ -145,16 +145,11 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
 
     override fun onSentence(index: Int, status: SentencePlayer.Status) {
         val s = split ?: return
-        val n = s.sentences.size
-        this.status.text = when (status) {
-            SentencePlayer.Status.LOADING -> getString(R.string.reader_loading, index + 1, n)
-            SentencePlayer.Status.PLAYING -> getString(R.string.reader_playing, index + 1, n)
-            SentencePlayer.Status.PAUSED -> getString(R.string.reader_paused, index + 1, n)
-            SentencePlayer.Status.DONE -> getString(R.string.reader_done)
-        }
-        progress.visibility = if (status == SentencePlayer.Status.LOADING) View.VISIBLE else View.GONE
-        val playing = status == SentencePlayer.Status.PLAYING || status == SentencePlayer.Status.LOADING
-        play.setImageResource(if (playing) R.drawable.ic_pause else R.drawable.ic_play)
+        // No status line while reading; a loading sentence shows as a spinner on the play button.
+        val loading = status == SentencePlayer.Status.LOADING
+        progress.visibility = if (loading) View.VISIBLE else View.GONE
+        val playing = status == SentencePlayer.Status.PLAYING || loading
+        play.setImageResource(if (loading) 0 else if (playing) R.drawable.ic_pause else R.drawable.ic_play)
         play.contentDescription = getString(if (playing) R.string.reader_pause else R.string.reader_play)
         highlight(if (status == SentencePlayer.Status.DONE) null else s.ranges[index])
     }
@@ -180,7 +175,7 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
 
     override fun onError(message: String) {
         progress.visibility = View.GONE
-        status.text = getString(R.string.speech_failed, message)
+        showStatus(getString(R.string.speech_failed, message))
         play.setImageResource(R.drawable.ic_play)
     }
 
@@ -189,9 +184,12 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
         if (!isFinishing) finish()
     }
 
-    private fun fail(message: String) {
-        progress.visibility = View.GONE
+    private fun fail(message: String) = showStatus(message)
+
+    /** The status line holds messages only (summarizing, nothing to read, errors); null hides it. */
+    private fun showStatus(message: String?) {
         status.text = message
+        status.visibility = if (message == null) View.GONE else View.VISIBLE
     }
 
     override fun onDestroy() {
