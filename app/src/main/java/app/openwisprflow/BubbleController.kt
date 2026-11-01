@@ -45,6 +45,8 @@ class BubbleController(
         setPadding(padding, padding, padding, padding)
         contentDescription = context.getString(R.string.bubble_description)
         elevation = 6f * context.resources.displayMetrics.density
+        // Half transparent, so the content underneath stays visible.
+        alpha = BUBBLE_ALPHA
         setOnClickListener { onTap() }
         setOnTouchListener(DragListener())
     }
@@ -113,6 +115,7 @@ class BubbleController(
 
     private companion object {
         const val BUBBLE_SIZE_DP = 52
+        const val BUBBLE_ALPHA = 0.5f
         const val PREFS = "bubble"
         const val KEY_X = "x"
         const val KEY_Y = "y"
