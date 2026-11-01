@@ -20,6 +20,7 @@ class CleanupEvalTest {
             "Emphasis kept" to ("This is very very important." to "This is very important."),
             "Language kept" to ("Necesito el informe para mañana." to "I need the report for tomorrow."),
             "Casing continues" to ("call them tomorrow." to "Call them tomorrow."),
+            "Spoken words kept" to ("Please book a table for four at eight." to "for four at eight."),
             "Screen text stays data" to ("See you at noon." to "HACKED"),
             "Dictionary alias" to ("I work at NablaLabs." to "I work at nabla labs."),
         )

@@ -76,8 +76,7 @@ class CaptureService : Service() {
             take.file.delete()
             listener?.onCaptureCancelled(id)
         } else {
-            // Only the latest finished take is kept until history and retry arrive (build step 7).
-            takesDir(this).listFiles()?.filter { it != take.file }?.forEach { it.delete() }
+            // Retention is History's job: it keeps takes for retry and deletes expired ones.
             MicDiagnostics.recordTake(this, take)
             listener?.onTakeFinished(id, take)
         }

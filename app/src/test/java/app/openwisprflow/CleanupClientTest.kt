@@ -66,6 +66,19 @@ class CleanupClientTest {
         CleanupCall.parseInsertText(reply(JSONObject().put("insert_text", 42).toString()))
     }
 
+    @Test
+    fun spokenWordSafetyNet() {
+        // Normal cleanup keeps most words.
+        assertTrue(CleanupCall.keepsSpokenWords("let's meet on Tuesday, sorry, Wednesday", "Let's meet on Wednesday."))
+        assertTrue(CleanupCall.keepsSpokenWords("um can you uh send it tomorrow", "Can you send it tomorrow?"))
+        assertTrue(CleanupCall.keepsSpokenWords("um necesito el informe para mañana", "Necesito el informe para mañana."))
+        // Seen on a device: the overlap with the text before the cursor was dropped.
+        assertFalse(CleanupCall.keepsSpokenWords("please book a table for four at eight", "pm."))
+        assertFalse(CleanupCall.keepsSpokenWords("please book a table for four at eight tonight", "for four at eight."))
+        // Too short to judge.
+        assertTrue(CleanupCall.keepsSpokenWords("yes", "Yes."))
+    }
+
     private fun obj(key: String, value: String) = JSONObject().put(key, value).toString()
 
     private fun reply(content: String): String =

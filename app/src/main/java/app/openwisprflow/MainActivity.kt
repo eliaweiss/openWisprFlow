@@ -49,6 +49,9 @@ class MainActivity : Activity() {
             )
         }
         findViewById<Button>(R.id.play_last_take).setOnClickListener { playLastTake() }
+        findViewById<Button>(R.id.open_history).setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }
 
         apiKey = findViewById(R.id.api_key)
         apiKeyStatus = findViewById(R.id.api_key_status)

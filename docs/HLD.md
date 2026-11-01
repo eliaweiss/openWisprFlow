@@ -577,7 +577,7 @@ History records a hash of the prompt each take used, so a change in results can 
 
 A message visible in another app can contain text such as “ignore the previous instructions”. That text stays data on the cleanup call.
 
-If cleanup times out or the reply fails validation, `insert_text` falls back to the transcript. History keeps both strings, so a bad rewrite can be seen and the raw transcript copied. There is no automatic check for changed numbers, URLs, or names in version 1: it would have to tell an explicit spoken correction (“five, actually six”) from a mistake, and a rule that cannot do that reliably would only block good results.
+If cleanup times out or the reply fails validation, `insert_text` falls back to the transcript. History keeps both strings, so a bad rewrite can be seen and the raw transcript copied. There is no automatic check for changed numbers, URLs, or names in version 1: it would have to tell an explicit spoken correction (“five, actually six”) from a mistake. One coarse check does run: if the cleaned text has lost more than half of the transcript's words of three or more letters, cleanup counts as failed and the transcript is inserted. On a device, Gemini 3.5 Flash Lite dropped spoken words that repeated the text before the cursor, even with a prompt rule against it; fillers and spoken corrections never remove that much.
 
 | Speech | Expected `insert_text` |
 |---|---|

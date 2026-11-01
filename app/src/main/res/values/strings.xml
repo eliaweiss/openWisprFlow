@@ -23,7 +23,7 @@
     <string name="status_disabled">The dictation service is off.</string>
     <string name="open_accessibility_settings">Open accessibility settings</string>
     <string name="setup_steps">To turn it on: Accessibility → openWisprFlow dictation → Use openWisprFlow dictation.\n\nIf the switch is greyed out (\"restricted setting\"), go to App info → ⋮ menu → Allow restricted settings, then try again.</string>
-    <string name="build_step_note">Build step 6: tap the bubble to record, tap again (■) to stop, long press to cancel. The cleaned transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy.</string>
+    <string name="build_step_note">Build step 7: tap the bubble to record, tap again (■) to stop, long press to cancel. The cleaned transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy.</string>
     <string name="allow_microphone">Allow microphone</string>
 
     <string name="api_key_title">AI Gateway API key</string>
@@ -56,8 +56,25 @@
     <string name="cleanup_eval_running">Running %1$d of %2$d…</string>
     <string name="cleanup_eval_done">%1$d of %2$d passed.</string>
     <string name="cleanup_failed">Cleanup failed; inserted the transcript.</string>
+    <string name="history_title">History</string>
+    <string name="open_history">Open history</string>
+    <string name="history_explainer">Your dictations, newest first, stored only on this phone. Audio is kept for 24 hours so a take can be retried; a retry\'s result is offered for copy and never typed into a field. Incognito fields leave no history.</string>
+    <string name="history_clear">Delete all</string>
+    <string name="history_empty">No dictations yet.</string>
+    <string name="history_header">%1$s · %2$s</string>
+    <string name="history_raw">Transcript: %1$s</string>
+    <string name="history_no_text">(no text)</string>
+    <string name="history_retry">Retry</string>
+    <string name="history_retrying">Retrying…</string>
+    <string name="history_retried">Retried; copy to use it.</string>
+    <string name="history_delete">Delete</string>
+    <string name="status_inserted">Inserted</string>
+    <string name="status_preview">Not inserted</string>
+    <string name="status_failed">Failed</string>
+    <string name="status_nothing_heard">Nothing heard</string>
+    <string name="status_cancelled">Cancelled</string>
     <string name="nothing_heard">Nothing was heard.</string>
-    <string name="transcription_failed">Transcription failed: %1$s</string>
+    <string name="transcription_failed">Transcription failed: %1$s. You can retry it from History.</string>
     <string name="mic_granted">Microphone access is allowed.</string>
     <string name="play_last_take">Play last take</string>
     <string name="no_take">No take recorded yet.</string>

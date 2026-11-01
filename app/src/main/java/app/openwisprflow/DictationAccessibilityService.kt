@@ -13,6 +13,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
+import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -21,14 +22,15 @@ import java.util.concurrent.Executors
  * API 33), shows the bubble while a dictation-capable editor has an input connection and the
  * keyboard is open, and inserts text with commitText.
  *
- * Build step 6: a bubble tap starts recording through [CaptureService], straight from the
+ * Build step 7: a bubble tap starts recording through [CaptureService], straight from the
  * accessibility service with no activity in between. A second tap stops and submits; a long press
  * cancels. The take is transcribed by google/gemini-3.5-transcribe through AI Gateway, with the
  * user's own key, with custom vocabulary from the personal dictionary and from name-like terms
  * near the cursor. With cleanup on (the default) the verbatim transcript is rewritten by
  * google/gemini-3.5-flash-lite into insertable text; with it off, the smart transcript is used as
- * is. The result is inserted only if the editor is still the one the take started
- * in (HLD section 4); otherwise it goes to the copy preview.
+ * is. The result is inserted only if the editor is still the one the take started in (HLD
+ * section 4); otherwise it goes to the copy preview. Every take's outcome is recorded in
+ * [History], with its audio kept for retry, except in incognito fields.
  *
  * All state lives on the main thread. Reads of the target field run on [worker]; network calls
  * run on [network].
@@ -48,13 +50,19 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     private var contentRevision = 0L
 
     private var editorAllowed = false
+    private var editorIncognito = false
     private var keyboardVisible = false
 
     private var nextSessionId = 0L
     private var session: Session? = null
 
-    private class Session(val id: Long, var start: EditorSnapshot) {
+    private class Session(val id: Long, var start: EditorSnapshot, val incognito: Boolean) {
         var recording = true
+        var take: Take? = null
+        /** The speech model's transcript, kept for history. */
+        var raw: String? = null
+        var promptHash: String? = null
+        var insertedText: String? = null
         /** Visible text near the field, nearest first. In memory only, for this session. */
         var nearby: List<String> = emptyList()
         /** Aborts the request in flight (transcription or cleanup), if any. */
@@ -83,9 +91,12 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                     attribute.packageName,
                     packageName,
                 )
+                // Incognito fields still accept dictation but leave no history and no audio (HLD 7).
+                val incognito = (attribute.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0
                 main.post {
                     if (restarting) contentRevision++ else editorGeneration++
                     editorAllowed = allowed
+                    editorIncognito = incognito
                     updateBubble()
                 }
             }
@@ -176,7 +187,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         }
         val start = currentIdentity() ?: return
         val connection = inputMethod?.currentInputConnection ?: return
-        val s = Session(++nextSessionId, start)
+        val s = Session(++nextSessionId, start, editorIncognito)
         session = s
         bubble?.setState(BubbleController.State.RECORDING)
         Log.d(TAG, "session ${s.id} started")
@@ -207,6 +218,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         val s = session ?: return
         if (s.id != sessionId || !s.recording) return
         s.recording = false
+        s.take = take
         bubble?.setState(BubbleController.State.PROCESSING)
         Log.d(TAG, "session ${s.id} take ${take.durationMs} ms, peak ${take.peak}")
         transcribe(s, take)
@@ -215,7 +227,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     private fun transcribe(s: Session, take: Take) {
         val key = ApiKeyStore.get(this)
         if (key == null) {
-            endSession(s)
+            finish(s, HistoryStatus.FAILED, detail = "no API key")
             Toast.makeText(this, R.string.api_key_needed, Toast.LENGTH_LONG).show()
             return
         }
@@ -239,9 +251,10 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                 result.fold(
                     onSuccess = { transcript ->
                         Log.d(TAG, "session ${s.id} transcribed in $elapsed ms, ${transcript.text.length} chars")
+                        s.raw = transcript.text
                         when {
                             transcript.text.isBlank() -> {
-                                endSession(s)
+                                finish(s, HistoryStatus.NOTHING_HEARD)
                                 Toast.makeText(this, R.string.nothing_heard, Toast.LENGTH_SHORT).show()
                             }
                             cleanup -> clean(s, key, transcript.text)
@@ -251,7 +264,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                     onFailure = { error ->
                         val status = (error as? GatewayException)?.status
                         Log.w(TAG, "session ${s.id} transcription failed: ${error.javaClass.simpleName} $status")
-                        endSession(s)
+                        finish(s, HistoryStatus.FAILED, detail = error.message ?: error.javaClass.simpleName)
                         Toast.makeText(
                             this,
                             getString(R.string.transcription_failed, error.message ?: error.javaClass.simpleName),
@@ -277,7 +290,9 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
             nearby = s.nearby,
             dictionary = Dictionary.load(this),
         )
-        val call = CleanupCall(key, AppSettings.cleanupPrompt(this), input)
+        val prompt = AppSettings.cleanupPrompt(this)
+        s.promptHash = History.promptHash(prompt)
+        val call = CleanupCall(key, prompt, input)
         s.cancelRequest = call::cancel
         network.execute {
             val started = System.currentTimeMillis()
@@ -348,6 +363,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         }
         s.committed = true
         s.awaitingConfirm = true
+        s.insertedText = text
         s.insertAt = s.start.context?.absoluteSelectionStart
         s.expectedEnd = s.insertAt?.plus(text.length)
         connection.commitText(text, 1, null)
@@ -364,14 +380,38 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
             InsertionGuard.confirmsCommit(s.insertAt, s.expectedEnd, newSelStart, newSelEnd)
         ) {
             Log.d(TAG, "session ${s.id} confirmed")
-            endSession(s)
+            finish(s, HistoryStatus.INSERTED, finalText = s.insertedText)
         }
     }
 
     private fun showPreview(s: Session, text: String, reason: String) {
         Log.d(TAG, "session ${s.id} preview: $reason")
+        finish(s, HistoryStatus.PREVIEW, finalText = text.trim(), detail = reason)
+        preview?.show(text.trim(), reason)
+    }
+
+    /** Ends the session and records the take's outcome, unless the field was incognito. */
+    private fun finish(s: Session, status: HistoryStatus, finalText: String? = null, detail: String? = null) {
+        if (session !== s) return
         endSession(s)
-        preview?.show(text, reason)
+        val take = s.take ?: return
+        if (s.incognito) {
+            take.file.delete()
+            return
+        }
+        History.add(
+            this,
+            HistoryEntry(
+                id = UUID.randomUUID().toString(),
+                createdAt = System.currentTimeMillis(),
+                status = status,
+                raw = s.raw,
+                finalText = finalText,
+                detail = detail,
+                audioPath = take.file.absolutePath,
+                promptHash = s.promptHash,
+            ),
+        )
     }
 
     private fun endSession(s: Session) {
@@ -386,7 +426,8 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         Log.d(TAG, "session ${s.id} cancelled")
         if (s.recording) CaptureService.cancel(this)
         s.cancelRequest?.invoke()
-        endSession(s)
+        // A take cancelled while processing stays in history, so it can be retried.
+        finish(s, HistoryStatus.CANCELLED)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
