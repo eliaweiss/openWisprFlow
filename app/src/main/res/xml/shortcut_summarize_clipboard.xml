@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-shortcut-target xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/shortcut_summarize_description"
+    android:summary="@string/shortcut_summarize_summary" />

@@ -1,10 +1,6 @@
 package app.openwisprflow
 
-import android.content.Context
-import android.media.AudioAttributes
-import android.media.MediaPlayer
 import org.json.JSONObject
-import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -80,40 +76,5 @@ class SpeechCall(
             if (audio.isEmpty()) throw IOException("no audio in the reply")
             return Base64.getMimeDecoder().decode(audio)
         }
-    }
-}
-
-/** Plays one spoken WAV at a time; a new [play] or [stop] ends the previous one. */
-class SpeechPlayer(private val context: Context) {
-
-    private var player: MediaPlayer? = null
-    private val file get() = File(context.cacheDir, "speech.wav")
-
-    val isPlaying get() = player != null
-
-    fun play(wav: ByteArray, onDone: () -> Unit) {
-        stop()
-        file.writeBytes(wav)
-        player = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build(),
-            )
-            setDataSource(file.path)
-            setOnCompletionListener {
-                stop()
-                onDone()
-            }
-            prepare()
-            start()
-        }
-    }
-
-    fun stop() {
-        player?.release()
-        player = null
-        file.delete()
     }
 }

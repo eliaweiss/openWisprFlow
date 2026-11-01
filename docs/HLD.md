@@ -622,14 +622,19 @@ Insertion confirmation
 End of speech to insertion, p50 and p95
 ```
 
-### Read aloud
+### Read aloud and summaries
 
-Text on screen can be read aloud with `google/gemini-3.8-flash-lite-tts`, through AI Gateway's REST speech endpoint (`POST /v4/ai/speech-model`, the model in an `ai-model-id` header, `{text, voice, outputFormat: "wav"}` in the body, base64 WAV in the reply). Voice `Kore`; selections over 5,000 characters are cut, with a notice.
+Text on screen can be read aloud with `google/gemini-3.8-flash-lite-tts`, through AI Gateway's REST speech endpoint (`POST /v4/ai/speech-model`, the model in an `ai-model-id` header, `{text, voice, outputFormat: "wav"}` in the body, base64 WAV in the reply, voice `Kore`).
 
-- **Selected text:** a "Read aloud" item in Android's text-selection menu (`ACTION_PROCESS_TEXT`). An invisible activity takes the text, starts the reading and closes, so the other app keeps its selection and stays in front.
-- **Text that cannot be selected** (WhatsApp messages, for example): copy it, then press the system accessibility button. Android lets only the app with window focus read the clipboard, so the button opens an invisible activity that reads it once it has focus, then closes.
+Everything opens one reader pop-up. As in pocket-speak, the text is cleaned (markdown, URLs, hard-wrapped lines) and split into sentences on `. ! ? : ; ) ]` followed by whitespace, newlines and CJK sentence marks, so file names, decimals and times stay whole. Each sentence is a separate speech request; the next three are requested while one plays, so the gateway's round trip does not become a pause. Only the spoken copy of a sentence drops UUIDs and long identifiers and reads "main.py" as "main dot py"; the pop-up shows the original wording, highlights the sentence being read and keeps it in view, with previous, play/pause and next controls. Closing the pop-up ends the reading, and a newer pop-up closes an older one.
 
-The accessibility button was first meant to read the current selection, but opening it clears the selection, hence the two paths. One reading plays at a time; pressing the button again while loading or speaking stops it. The text is sent only for that reading and only its length is logged.
+Four entry points:
+
+- **"Read aloud"** in Android's text-selection menu (`ACTION_PROCESS_TEXT`), with the selected text.
+- **"Summarize"** in the same menu: the text goes to Inception Mercury 3 (`inception/mercury-3`) through `/v1/chat/completions` with pocket-speak's prompt (two or three short plain paragraphs, at most 110 words, in English, no identifiers longer than 4 characters), reasoning effort `none` and `max_tokens` 700; a regex pass removes any identifier the model leaves in. The summary is shown and read the same way.
+- **"Read clipboard aloud"** and **"Summarize clipboard"**, accessibility shortcuts (activities with `ACCESSIBILITY_SHORTCUT_TARGET`) that the user assigns to the accessibility button under those names. They are for text that cannot be selected, such as WhatsApp messages: copy it, press the button. Android lets only the focused app read the clipboard; the system opens these pop-ups itself, so they read it once they have focus.
+
+The accessibility button was first meant to read the current selection, but opening it clears the selection, hence the selection-menu items. The dictation service no longer registers for the button. The text is sent only while it is read or summarized, and only lengths are logged.
 
 ## 6. Dictionary, snippets, and history
 

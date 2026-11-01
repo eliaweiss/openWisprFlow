@@ -3,7 +3,30 @@
 <resources>
     <string name="read_aloud_label">Read aloud</string>
     <string name="speech_nothing_to_read">Nothing to read. Copy some text first, then press the accessibility button.</string>
-    <string name="speech_loading">Reading aloud…</string>
-    <string name="speech_truncated">Reading the first %1$d characters aloud.</string>
     <string name="speech_failed">Read aloud failed: %1$s</string>
+
+    <string name="summarize_label">Summarize</string>
+    <string name="summary_title">Summary</string>
+    <string name="summary_working">Summarizing %1$s characters…</string>
+    <string name="summary_failed">Summary failed: %1$s</string>
+    <string name="summary_copy">Copy</string>
+    <string name="summary_close">Close</string>
+
+    <string name="reader_title">Read aloud</string>
+    <string name="reader_preparing">Preparing…</string>
+    <string name="reader_loading">Loading sentence %1$d of %2$d…</string>
+    <string name="reader_playing">Sentence %1$d of %2$d</string>
+    <string name="reader_paused">Paused at sentence %1$d of %2$d</string>
+    <string name="reader_done">Finished</string>
+    <string name="reader_previous">Previous sentence</string>
+    <string name="reader_next">Next sentence</string>
+    <string name="reader_pause">Pause</string>
+    <string name="reader_play">Play</string>
+
+    <string name="shortcut_read_label">Read clipboard aloud</string>
+    <string name="shortcut_read_summary">Speaks the text you copied</string>
+    <string name="shortcut_read_description">Copy any text, including messages you cannot select, then press the accessibility button to hear it. Press again to stop. The text is sent to AI Gateway with your key only for that reading.</string>
+    <string name="shortcut_summarize_label">Summarize clipboard</string>
+    <string name="shortcut_summarize_summary">Summarizes the text you copied and reads the summary</string>
+    <string name="shortcut_summarize_description">Copy any text, then press the accessibility button: a pop-up shows a short summary by Mercury 3 and reads it aloud. The text is sent to AI Gateway with your key only for that summary.</string>
 </resources>

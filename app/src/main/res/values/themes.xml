@@ -31,6 +31,25 @@
         <item name="android:listDivider">@color/outline</item>
     </style>
 
+    <!-- Pop-up windows (the summary): the app's colours and controls on a dialog. -->
+    <style name="Owf.DialogBase" parent="android:Theme.Material.Light.Dialog.NoActionBar" />
+
+    <style name="Theme.Owf.Dialog" parent="Owf.DialogBase">
+        <item name="android:colorPrimary">@color/accent</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorControlActivated">@color/accent</item>
+        <item name="android:colorControlHighlight">@color/ripple</item>
+        <item name="android:windowBackground">@drawable/card_background</item>
+        <item name="android:windowMinWidthMajor">90%</item>
+        <item name="android:windowMinWidthMinor">90%</item>
+        <item name="android:backgroundDimAmount">0.4</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHighlight">@color/accent_container</item>
+        <item name="android:textViewStyle">@style/Owf.Body</item>
+        <item name="android:buttonStyle">@style/Owf.Button</item>
+    </style>
+
     <!-- Text -->
     <style name="Owf.Headline" parent="android:Widget.Material.TextView">
         <item name="android:textSize">@dimen/text_headline</item>
