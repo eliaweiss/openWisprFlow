@@ -53,6 +53,15 @@ class BubbleController(
 
     private var shown = false
 
+    /** While a dictation is in progress the bubble shows ✕, and a tap cancels. */
+    fun setBusy(busy: Boolean) {
+        view.setImageResource(if (busy) R.drawable.ic_close else R.drawable.ic_mic)
+        view.setBackgroundResource(if (busy) R.drawable.bubble_background_busy else R.drawable.bubble_background)
+        view.contentDescription = context.getString(
+            if (busy) R.string.bubble_cancel_description else R.string.bubble_description,
+        )
+    }
+
     fun show() {
         if (shown) return
         windowManager.addView(view, params)

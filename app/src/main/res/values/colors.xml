@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="bubble">#FF3D5AFE</color>
+    <color name="bubble_busy">#FFD32F2F</color>
+    <color name="preview_surface">#FFFFFFFF</color>
+    <color name="preview_text">#FF1C1B1F</color>
+    <color name="preview_secondary">#FF6B6870</color>
 </resources>

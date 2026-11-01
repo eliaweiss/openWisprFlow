@@ -6,7 +6,7 @@ The design is in [docs/HLD.md](docs/HLD.md).
 
 ## Status
 
-Build step 1 of 8: the accessibility service shows a bubble when a text field is focused, and tapping it types a fixed test phrase. Recording and transcription are not implemented yet.
+Build step 2 of 8. The bubble appears while a text field is focused and the keyboard is open. Tapping it starts a simulated dictation; after 3 seconds a test phrase is inserted only if the same field is still focused and unchanged, and otherwise it is shown with Copy. Tapping the bubble again cancels. Recording and transcription are not implemented yet.
 
 ## Requirements
 
