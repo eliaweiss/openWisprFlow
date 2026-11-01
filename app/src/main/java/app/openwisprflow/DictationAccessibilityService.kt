@@ -22,7 +22,7 @@ import java.util.concurrent.Executors
  * API 33), shows the bubble while a dictation-capable editor has an input connection and the
  * keyboard is open, and inserts text with commitText.
  *
- * Build step 7: a bubble tap starts recording through [CaptureService], straight from the
+ * Build step 8: a bubble tap starts recording through [CaptureService], straight from the
  * accessibility service with no activity in between. A second tap stops and submits; a long press
  * cancels. The take is transcribed by google/gemini-3.5-transcribe through AI Gateway, with the
  * user's own key, with custom vocabulary from the personal dictionary and from name-like terms
@@ -31,6 +31,10 @@ import java.util.concurrent.Executors
  * is. The result is inserted only if the editor is still the one the take started in (HLD
  * section 4); otherwise it goes to the copy preview. Every take's outcome is recorded in
  * [History], with its audio kept for retry, except in incognito fields.
+ *
+ * With live transcription on, audio also streams to google/gemini-3.5-transcribe-live while the
+ * user talks and the text appears above the bubble ([LiveTextController]); its final transcript
+ * replaces the upload after stop. Any streaming failure falls back to uploading the take.
  *
  * All state lives on the main thread. Reads of the target field run on [worker]; network calls
  * run on [network].
@@ -42,6 +46,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     private val network: ExecutorService = Executors.newSingleThreadExecutor()
     private var bubble: BubbleController? = null
     private var preview: PreviewController? = null
+    private var liveText: LiveTextController? = null
 
     /** Bumped on every new editor and on finish; a restart in the same editor does not bump it. */
     private var editorGeneration = 0L
@@ -63,6 +68,9 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         var raw: String? = null
         var promptHash: String? = null
         var insertedText: String? = null
+        var live: LiveTranscriber? = null
+        /** Stopped and waiting for the live model's final transcript. */
+        var awaitingLive = false
         /** Visible text near the field, nearest first. In memory only, for this session. */
         var nearby: List<String> = emptyList()
         /** Aborts the request in flight (transcription or cleanup), if any. */
@@ -77,6 +85,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         Log.d(TAG, "service connected")
         bubble = BubbleController(this, ::onBubbleTap, ::onBubbleLongPress)
         preview = PreviewController(this)
+        liveText = LiveTextController(this)
         CaptureService.listener = this
         refreshKeyboardVisible()
     }
@@ -192,16 +201,28 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         bubble?.setState(BubbleController.State.RECORDING)
         Log.d(TAG, "session ${s.id} started")
 
+        // Live audio is held by the transcriber until the vocabulary is known and it connects.
+        val key = ApiKeyStore.get(this)
+        if (key != null && AppSettings.useLiveTranscription(this)) {
+            val live = LiveTranscriber(key, LiveListener(s))
+            s.live = live
+            CaptureService.frameListener = live::sendAudio
+        } else {
+            CaptureService.frameListener = null
+        }
+
         // A failed or late read leaves the context empty; the identity checks still apply.
         val useScreen = AppSettings.useScreenContext(this)
         worker.execute {
             val context = FieldContextReader.read(connection)
             val nearby = if (useScreen) runCatching { ScreenContextReader.collect(this) }.getOrDefault(emptyList()) else emptyList()
             main.post {
-                if (session === s && editorGeneration == start.editorGeneration) {
+                if (session !== s) return@post
+                if (editorGeneration == start.editorGeneration) {
                     s.start = s.start.copy(context = context)
                     s.nearby = nearby
                 }
+                s.live?.connect(transcriptionOptions(s))
             }
         }
 
@@ -221,7 +242,71 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         s.take = take
         bubble?.setState(BubbleController.State.PROCESSING)
         Log.d(TAG, "session ${s.id} take ${take.durationMs} ms, peak ${take.peak}")
-        transcribe(s, take)
+        val live = s.live
+        if (live == null) {
+            transcribe(s, take)
+            return
+        }
+        s.awaitingLive = true
+        live.finishAudio()
+        main.postDelayed({
+            if (session === s && s.awaitingLive) {
+                Log.w(TAG, "session ${s.id} live final timed out; uploading the take")
+                stopLive(s)
+                transcribe(s, take)
+            }
+        }, LIVE_FINISH_TIMEOUT_MS)
+    }
+
+    /** Vocabulary and mode for this session's transcription, live or uploaded. */
+    private fun transcriptionOptions(s: Session): TranscriptionOptions {
+        // The field's own text is the nearest context, then the rest of the screen.
+        val nearby = listOfNotNull(s.start.context?.before, s.start.context?.after) + s.nearby
+        val vocabulary = Vocabulary.build(Dictionary.load(this), nearby)
+        Log.d(TAG, "session ${s.id} vocabulary ${vocabulary.size} terms")
+        // Cleanup needs the verbatim transcript (fillers and self-corrections intact); without it,
+        // smart mode removes fillers in the recognizer (HLD section 3).
+        val mode = if (AppSettings.useCleanup(this)) TranscriptionOptions.VERBATIM else TranscriptionOptions.SMART
+        return TranscriptionOptions(mode, vocabulary)
+    }
+
+    /** Live transcription events, moved to the main thread and dropped once the session is over. */
+    private inner class LiveListener(private val s: Session) : LiveTranscriber.Listener {
+        override fun onLiveText(text: String) = main.post {
+            if (session === s && (s.recording || s.awaitingLive)) bubble?.let { liveText?.show(text, it.top) }
+        }.let { }
+
+        override fun onLiveFinished(transcript: Transcript) = main.post {
+            if (session !== s || !s.awaitingLive) return@post
+            s.awaitingLive = false
+            stopLive(s)
+            Log.d(TAG, "session ${s.id} live final, ${transcript.text.length} chars")
+            val key = ApiKeyStore.get(this@DictationAccessibilityService)
+            if (key == null) {
+                finish(s, HistoryStatus.FAILED, detail = "no API key")
+                return@post
+            }
+            onTranscript(s, key, transcript.text, AppSettings.useCleanup(this@DictationAccessibilityService))
+        }.let { }
+
+        override fun onLiveFailed(error: Throwable) = main.post {
+            if (session !== s) return@post
+            Log.w(TAG, "session ${s.id} live failed: ${error.javaClass.simpleName} ${(error as? GatewayException)?.status ?: ""}")
+            stopLive(s)
+            val take = s.take
+            if (s.awaitingLive && take != null) {
+                s.awaitingLive = false
+                transcribe(s, take)
+            }
+            // While still recording, the take is simply uploaded after stop.
+        }.let { }
+    }
+
+    private fun stopLive(s: Session) {
+        s.live?.cancel()
+        s.live = null
+        if (session === s) CaptureService.frameListener = null
+        liveText?.hide()
     }
 
     private fun transcribe(s: Session, take: Take) {
@@ -231,16 +316,9 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
             Toast.makeText(this, R.string.api_key_needed, Toast.LENGTH_LONG).show()
             return
         }
-        // The field's own text is the nearest context, then the rest of the screen.
-        val nearby = listOfNotNull(s.start.context?.before, s.start.context?.after) + s.nearby
-        val vocabulary = Vocabulary.build(Dictionary.load(this), nearby)
-        // Cleanup needs the verbatim transcript (fillers and self-corrections intact); without it,
-        // smart mode removes fillers in the recognizer (HLD section 3).
         val cleanup = AppSettings.useCleanup(this)
-        val mode = if (cleanup) TranscriptionOptions.VERBATIM else TranscriptionOptions.SMART
-        val call = TranscriptionCall(key, take.file, TranscriptionOptions(mode, vocabulary))
+        val call = TranscriptionCall(key, take.file, transcriptionOptions(s))
         s.cancelRequest = call::cancel
-        Log.d(TAG, "session ${s.id} vocabulary ${vocabulary.size} terms")
         network.execute {
             val started = System.currentTimeMillis()
             val result = runCatching { call.execute() }
@@ -251,15 +329,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                 result.fold(
                     onSuccess = { transcript ->
                         Log.d(TAG, "session ${s.id} transcribed in $elapsed ms, ${transcript.text.length} chars")
-                        s.raw = transcript.text
-                        when {
-                            transcript.text.isBlank() -> {
-                                finish(s, HistoryStatus.NOTHING_HEARD)
-                                Toast.makeText(this, R.string.nothing_heard, Toast.LENGTH_SHORT).show()
-                            }
-                            cleanup -> clean(s, key, transcript.text)
-                            else -> onResult(s, transcript.text)
-                        }
+                        onTranscript(s, key, transcript.text, cleanup)
                     },
                     onFailure = { error ->
                         val status = (error as? GatewayException)?.status
@@ -273,6 +343,19 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                     },
                 )
             }
+        }
+    }
+
+    /** The transcript is in, from the live model or the upload: clean it up or insert it. */
+    private fun onTranscript(s: Session, key: String, text: String, cleanup: Boolean) {
+        s.raw = text
+        when {
+            text.isBlank() -> {
+                finish(s, HistoryStatus.NOTHING_HEARD)
+                Toast.makeText(this, R.string.nothing_heard, Toast.LENGTH_SHORT).show()
+            }
+            cleanup -> clean(s, key, text)
+            else -> onResult(s, text)
         }
     }
 
@@ -416,6 +499,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
 
     private fun endSession(s: Session) {
         if (session !== s) return
+        stopLive(s)
         session = null
         bubble?.setState(BubbleController.State.IDLE)
     }
@@ -451,7 +535,9 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         worker.shutdownNow()
         network.shutdownNow()
         preview?.dismiss()
+        liveText?.hide()
         bubble?.hide()
+        liveText = null
         preview = null
         bubble = null
         super.onDestroy()
@@ -460,5 +546,6 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     private companion object {
         const val TAG = "openWisprFlow"
         const val COMMIT_CONFIRM_TIMEOUT_MS = 1_000L
+        const val LIVE_FINISH_TIMEOUT_MS = 8_000L
     }
 }

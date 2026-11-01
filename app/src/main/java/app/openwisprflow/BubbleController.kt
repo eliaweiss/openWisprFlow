@@ -58,6 +58,9 @@ class BubbleController(
 
     private var shown = false
 
+    /** The bubble's top edge in window coordinates. */
+    val top: Int get() = params.y
+
     /**
      * Idle shows the microphone. Recording shows stop: a tap stops and submits, a long press
      * cancels. Processing shows ✕: a tap cancels.

@@ -23,7 +23,7 @@
     <string name="status_disabled">The dictation service is off.</string>
     <string name="open_accessibility_settings">Open accessibility settings</string>
     <string name="setup_steps">To turn it on: Accessibility → openWisprFlow dictation → Use openWisprFlow dictation.\n\nIf the switch is greyed out (\"restricted setting\"), go to App info → ⋮ menu → Allow restricted settings, then try again.</string>
-    <string name="build_step_note">Build step 7: tap the bubble to record, tap again (■) to stop, long press to cancel. The cleaned transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy.</string>
+    <string name="build_step_note">Build step 8: tap the bubble to record, tap again (■) to stop, long press to cancel. The cleaned transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy.</string>
     <string name="allow_microphone">Allow microphone</string>
 
     <string name="api_key_title">AI Gateway API key</string>
@@ -45,6 +45,8 @@
     <string name="dictionary_saved">Dictionary saved (%1$d).</string>
     <string name="screen_context_switch">Use names on screen as hints</string>
     <string name="screen_context_explainer">While you dictate, name-like words near the text field (people, places, product names) are sent with the audio as spelling hints. With cleanup on, up to 1,500 characters of text near the field also go to the cleanup model as context.</string>
+    <string name="live_switch">Show live text while you talk (experimental)</string>
+    <string name="live_explainer">Streams the audio to Gemini 3.5 Transcribe Live as you speak and shows the words above the bubble. The live model\'s transcript is then inserted after you stop; it can miss words that the normal upload catches. If streaming fails, the recording is uploaded as usual.</string>
     <string name="cleanup_title">Cleanup</string>
     <string name="cleanup_switch">Clean up with Gemini 3.5 Flash Lite</string>
     <string name="cleanup_explainer">A second call rewrites the verbatim transcript into text ready to insert: punctuation, fillers removed, spoken corrections resolved. It sees the text around the cursor, your dictionary and, with screen hints on, text near the field. Off: the speech model\'s own tidy transcript is inserted, one call instead of two.</string>

@@ -48,9 +48,12 @@ class CaptureService : Service() {
         try {
             startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             val file = File(takesDir(this), "take-$id-${System.currentTimeMillis()}.wav")
-            capture = AudioCapture(file, MAX_DURATION_MS) {
-                main.post { if (sessionId == id) finish(cancel = false) }
-            }.also { it.start() }
+            capture = AudioCapture(
+                file,
+                MAX_DURATION_MS,
+                onMaxDuration = { main.post { if (sessionId == id) finish(cancel = false) } },
+                onFrame = frameListener,
+            ).also { it.start() }
             MicDiagnostics.recordStart(this, null)
             Log.d(TAG, "capture started for session $id")
         } catch (e: Exception) {
@@ -122,6 +125,10 @@ class CaptureService : Service() {
 
         /** Set by the accessibility service; called on the main thread. */
         var listener: Listener? = null
+
+        /** Set before [start] to receive live PCM frames for streaming; called on the capture thread. */
+        @Volatile
+        var frameListener: ((ByteArray) -> Unit)? = null
 
         fun takesDir(context: Context) = File(context.filesDir, "takes").apply { mkdirs() }
 

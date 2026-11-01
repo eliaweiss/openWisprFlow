@@ -595,16 +595,18 @@ spoken_trigger: "my meeting link"
 expansion: "https://example.com/meet"
 ```
 
-### Streaming
+### Streaming (experimental, off by default)
 
-After unary insertion is reliable, stream audio while the user is still talking, with `google/gemini-3.5-transcribe-live`. Partials are replaceable revisions shown only in the bubble. Cleanup, when on, runs once, on the final transcript. `commitText` runs once, for `insert_text`.
+A setting, "Show live text while you talk", streams audio to `google/gemini-3.5-transcribe-live` while the user talks and shows the text above the bubble. After stop, the live model's final transcript goes through cleanup and the same insertion checks. Any streaming failure falls back to uploading the take, which stays on disk as the source of truth.
 
-Two things are undocumented for a non-JavaScript client and must be settled first:
+The protocol is the one `@ai-sdk/gateway` uses (`GatewayTranscriptionModel.doStream`), since Vercel documents live transcription only through the SDK:
 
-- **The WebSocket protocol.** Vercel documents live transcription only through the AI SDK (`experimental_streamTranscribe`). The URL, handshake, and message format are not published. The AI SDK's gateway provider source is the reference to port to Kotlin. The documented auth is a short-lived token (single use, 60 seconds by default, 300 maximum) minted with the API key; whether the key itself can open the socket is not documented.
-- **The sample rate.** The model takes raw 16-bit signed little-endian mono PCM, but the launch changelog sample sends 16 kHz and the [model page](https://vercel.com/ai-gateway/models/gemini-3.5-transcribe-live) says 24 kHz. Google's Live API takes 16 kHz PCM natively and resamples other rates. Capture stays at 16 kHz and the declared rate is 16000. The phone resamples to 24 kHz only if a test shows the gateway ignores the declared rate.
+- WebSocket to `wss://ai-gateway.vercel.sh/v4/ai/transcription-model?ai-model-id=google/gemini-3.5-transcribe-live`, with the API key in the subprotocols `ai-gateway-transcription.v1` and `ai-gateway-auth.<key>`. There is no token-minting call.
+- One text frame `{"type":"transcription-stream.start","inputAudioFormat":{"type":"audio/pcm","rate":16000},"providerOptions":{...}}`, then raw PCM as binary frames, then `{"type":"transcription-stream.audio-done"}`.
+- The server sends `transcript-partial`, `transcript-delta` and `transcript-final` parts, then a terminal `finish` part and a normal close. An `error` part, or a close without `finish`, is a failure.
+- The Google live path accepts only 16 kHz 16-bit PCM, which settles the 16 vs 24 kHz question in Vercel's pages.
 
-A reconnect must not create a second insert.
+It is off by default because, tested on a device, it added nothing to the final result. On the same take the live model dropped three words at a segment boundary that the upload model kept, and its final transcript arrived about 3 seconds after stop, the same as the upload. The live text is useful only as feedback while talking.
 
 ### Latency
 

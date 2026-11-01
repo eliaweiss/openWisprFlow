@@ -9,6 +9,18 @@ object AppSettings {
     private const val SCREEN_CONTEXT = "screen_context"
     private const val CLEANUP = "cleanup"
     private const val CLEANUP_PROMPT = "cleanup_prompt"
+    private const val LIVE = "live_transcription"
+
+    /**
+     * Whether audio streams to the live model while recording, with text shown above the bubble.
+     * Off by default: in testing the live model dropped words at segment boundaries that the
+     * upload model kept, and its final transcript came no sooner after stop.
+     */
+    fun useLiveTranscription(context: Context) = prefs(context).getBoolean(LIVE, false)
+
+    fun setUseLiveTranscription(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(LIVE, enabled).apply()
+    }
 
     /** Whether name-like terms near the field are sent as recognition hints. On by default. */
     fun useScreenContext(context: Context) = prefs(context).getBoolean(SCREEN_CONTEXT, true)

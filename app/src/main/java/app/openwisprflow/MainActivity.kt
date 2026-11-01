@@ -80,6 +80,10 @@ class MainActivity : Activity() {
             setOnCheckedChangeListener { _, checked -> AppSettings.setUseScreenContext(this@MainActivity, checked) }
         }
 
+        findViewById<Switch>(R.id.live_transcription).apply {
+            isChecked = AppSettings.useLiveTranscription(this@MainActivity)
+            setOnCheckedChangeListener { _, checked -> AppSettings.setUseLiveTranscription(this@MainActivity, checked) }
+        }
         findViewById<Switch>(R.id.cleanup).apply {
             isChecked = AppSettings.useCleanup(this@MainActivity)
             setOnCheckedChangeListener { _, checked -> AppSettings.setUseCleanup(this@MainActivity, checked) }

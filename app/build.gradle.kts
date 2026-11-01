@@ -33,6 +33,9 @@ android {
 }
 
 dependencies {
+    // WebSocket client for live transcription; Android has no public one.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     testImplementation("junit:junit:4.13.2")
     // A real org.json for JVM unit tests; android.jar only has stubs.
     testImplementation("org.json:json:20240303")

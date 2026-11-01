@@ -15,7 +15,13 @@ data class Take(val file: File, val durationMs: Long, val peak: Int)
  * (HLD section 4, Audio). This object is the only owner of the AudioRecord: the capture thread
  * reads it, and only [stop] releases it, after that thread has exited.
  */
-class AudioCapture(private val file: File, private val maxDurationMs: Long, private val onMaxDuration: () -> Unit) {
+class AudioCapture(
+    private val file: File,
+    private val maxDurationMs: Long,
+    private val onMaxDuration: () -> Unit,
+    /** Receives a copy of each 20 ms frame as little-endian PCM bytes, on the capture thread. */
+    private val onFrame: ((ByteArray) -> Unit)? = null,
+) {
 
     private val recorder: AudioRecord
     private val writer: WavWriter
@@ -63,6 +69,14 @@ class AudioCapture(private val file: File, private val maxDurationMs: Long, priv
             val read = recorder.read(frame, 0, frame.size)
             if (read <= 0) continue
             writer.write(frame, read)
+            onFrame?.let { send ->
+                val bytes = ByteArray(read * 2)
+                for (i in 0 until read) {
+                    bytes[2 * i] = frame[i].toInt().toByte()
+                    bytes[2 * i + 1] = (frame[i].toInt() shr 8).toByte()
+                }
+                send(bytes)
+            }
             for (i in 0 until read) {
                 val level = abs(frame[i].toInt())
                 if (level > peak) peak = level
