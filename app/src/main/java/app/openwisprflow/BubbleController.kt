@@ -19,10 +19,14 @@ import kotlin.math.roundToInt
 class BubbleController(
     private val context: Context,
     private val onTap: () -> Unit,
+    private val onLongPress: () -> Unit,
 ) {
+    enum class State { IDLE, RECORDING, PROCESSING }
+
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private val longPressMs = ViewConfiguration.getLongPressTimeout().toLong()
     private val sizePx = (BUBBLE_SIZE_DP * context.resources.displayMetrics.density).roundToInt()
 
     private val params = WindowManager.LayoutParams(
@@ -33,9 +37,10 @@ class BubbleController(
         PixelFormat.TRANSLUCENT,
     ).apply {
         gravity = Gravity.TOP or Gravity.START
+        // Default: against the right edge, just above a typical keyboard. A dragged position wins.
         val bounds = windowManager.currentWindowMetrics.bounds
-        x = prefs.getInt(KEY_X, bounds.width() - sizePx - sizePx / 3)
-        y = prefs.getInt(KEY_Y, (bounds.height() * 0.4f).roundToInt())
+        x = prefs.getInt(KEY_X, bounds.width() - sizePx)
+        y = prefs.getInt(KEY_Y, (bounds.height() * DEFAULT_Y_FRACTION).roundToInt())
     }
 
     private val view = ImageView(context).apply {
@@ -53,13 +58,19 @@ class BubbleController(
 
     private var shown = false
 
-    /** While a dictation is in progress the bubble shows ✕, and a tap cancels. */
-    fun setBusy(busy: Boolean) {
-        view.setImageResource(if (busy) R.drawable.ic_close else R.drawable.ic_mic)
-        view.setBackgroundResource(if (busy) R.drawable.bubble_background_busy else R.drawable.bubble_background)
-        view.contentDescription = context.getString(
-            if (busy) R.string.bubble_cancel_description else R.string.bubble_description,
-        )
+    /**
+     * Idle shows the microphone. Recording shows stop: a tap stops and submits, a long press
+     * cancels. Processing shows ✕: a tap cancels.
+     */
+    fun setState(state: State) {
+        val (icon, background, description) = when (state) {
+            State.IDLE -> Triple(R.drawable.ic_mic, R.drawable.bubble_background, R.string.bubble_description)
+            State.RECORDING -> Triple(R.drawable.ic_stop, R.drawable.bubble_background_busy, R.string.bubble_stop_description)
+            State.PROCESSING -> Triple(R.drawable.ic_close, R.drawable.bubble_background_busy, R.string.bubble_cancel_description)
+        }
+        view.setImageResource(icon)
+        view.setBackgroundResource(background)
+        view.contentDescription = context.getString(description)
     }
 
     fun show() {
@@ -74,13 +85,19 @@ class BubbleController(
         shown = false
     }
 
-    /** Drag past touch slop moves the bubble and does not count as a tap. */
+    /** Drag past touch slop moves the bubble and counts as neither a tap nor a long press. */
     private inner class DragListener : android.view.View.OnTouchListener {
         private var downRawX = 0f
         private var downRawY = 0f
         private var startX = 0
         private var startY = 0
         private var dragging = false
+        private var longPressed = false
+        private val longPress = Runnable {
+            longPressed = true
+            view.isPressed = false
+            onLongPress()
+        }
 
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouch(v: android.view.View, event: MotionEvent): Boolean {
@@ -91,14 +108,17 @@ class BubbleController(
                     startX = params.x
                     startY = params.y
                     dragging = false
+                    longPressed = false
                     v.isPressed = true
+                    v.postDelayed(longPress, longPressMs)
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - downRawX
                     val dy = event.rawY - downRawY
-                    if (!dragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
+                    if (!dragging && !longPressed && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
                         dragging = true
                         v.isPressed = false
+                        v.removeCallbacks(longPress)
                     }
                     if (dragging) {
                         params.x = startX + dx.roundToInt()
@@ -108,14 +128,15 @@ class BubbleController(
                 }
                 MotionEvent.ACTION_UP -> {
                     v.isPressed = false
-                    if (dragging) {
-                        prefs.edit().putInt(KEY_X, params.x).putInt(KEY_Y, params.y).apply()
-                    } else {
-                        v.performClick()
+                    v.removeCallbacks(longPress)
+                    when {
+                        dragging -> prefs.edit().putInt(KEY_X, params.x).putInt(KEY_Y, params.y).apply()
+                        !longPressed -> v.performClick()
                     }
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
+                    v.removeCallbacks(longPress)
                 }
             }
             return true
@@ -125,6 +146,9 @@ class BubbleController(
     private companion object {
         const val BUBBLE_SIZE_DP = 52
         const val BUBBLE_ALPHA = 0.5f
+
+        /** Top of the bubble as a fraction of the window height; 1372 px on a 2340 px screen. */
+        const val DEFAULT_Y_FRACTION = 0.5863f
         const val PREFS = "bubble"
         const val KEY_X = "x"
         const val KEY_Y = "y"

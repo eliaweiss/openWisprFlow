@@ -37,10 +37,39 @@
             android:text="@string/setup_steps" />
 
         <TextView
+            android:id="@+id/mic_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/mic_granted" />
+
+        <Button
+            android:id="@+id/allow_microphone"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/allow_microphone" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:text="@string/build_step_note"
             android:textStyle="italic" />
+
+        <TextView
+            android:id="@+id/diagnostics"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:fontFamily="monospace"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/play_last_take"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/play_last_take" />
     </LinearLayout>
 </ScrollView>

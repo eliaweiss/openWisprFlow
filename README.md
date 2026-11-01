@@ -6,7 +6,7 @@ The design is in [docs/HLD.md](docs/HLD.md).
 
 ## Status
 
-Build step 2 of 8. The bubble appears while a text field is focused and the keyboard is open. Tapping it starts a simulated dictation; after 3 seconds a test phrase is inserted only if the same field is still focused and unchanged, and otherwise it is shown with Copy. Tapping the bubble again cancels. Recording and transcription are not implemented yet.
+Build step 3 of 8. The bubble appears while a text field is focused and the keyboard is open. Tap it to record, tap again to stop, long-press to cancel. Until transcription arrives (step 4), a line describing the take is inserted, and only if the same field is still focused and unchanged; otherwise it is shown with Copy. The setup screen shows microphone diagnostics and plays back the last take.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ Build step 2 of 8. The bubble appears while a text field is focused and the keyb
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Then open openWisprFlow and tap **Open accessibility settings**, and turn on **openWisprFlow dictation**.
+Then open openWisprFlow, tap **Open accessibility settings** and turn on **openWisprFlow dictation**, and tap **Allow microphone**.
 
 If the switch is greyed out as a "restricted setting" (common for apps installed from a downloaded APK), open App info for openWisprFlow, use the ⋮ menu, choose **Allow restricted settings**, and try again.
 

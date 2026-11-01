@@ -5,6 +5,14 @@
     <string name="service_description">Shows a dictation bubble when you focus a text field, and types the dictated text into that field. It reads the focused field and nearby screen text only while a dictation is in progress.</string>
     <string name="bubble_description">Dictate</string>
     <string name="bubble_cancel_description">Cancel dictation</string>
+    <string name="bubble_stop_description">Stop and insert. Long press to cancel.</string>
+
+    <string name="recording_channel">Recording</string>
+    <string name="recording_title">Recording dictation</string>
+    <string name="recording_stop">Stop</string>
+    <string name="recording_cancel">Cancel</string>
+    <string name="mic_permission_needed">openWisprFlow needs microphone access. Open the app and tap Allow microphone.</string>
+    <string name="mic_start_failed">The microphone could not start (%1$s).</string>
 
     <string name="preview_reason">Not inserted: %1$s</string>
     <string name="preview_copy">Copy</string>
@@ -15,5 +23,9 @@
     <string name="status_disabled">The dictation service is off.</string>
     <string name="open_accessibility_settings">Open accessibility settings</string>
     <string name="setup_steps">To turn it on: Accessibility → openWisprFlow dictation → Use openWisprFlow dictation.\n\nIf the switch is greyed out (\"restricted setting\"), go to App info → ⋮ menu → Allow restricted settings, then try again.</string>
-    <string name="build_step_note">Build step 2: tapping the bubble starts a simulated dictation. After 3 seconds a test phrase is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy. Tap the bubble again (✕) to cancel.</string>
+    <string name="build_step_note">Build step 3: tap the bubble to record, tap again (■) to stop, long press to cancel. A line describing the take is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy. Transcription comes in step 4.</string>
+    <string name="allow_microphone">Allow microphone</string>
+    <string name="mic_granted">Microphone access is allowed.</string>
+    <string name="play_last_take">Play last take</string>
+    <string name="no_take">No take recorded yet.</string>
 </resources>

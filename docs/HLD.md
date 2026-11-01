@@ -36,9 +36,9 @@ flowchart TD
 Gestures on the bubble:
 
 - Tap starts recording. Tap again stops and submits.
-- Hold records while pressed. Release stops and submits.
+- Hold records while pressed. Release stops and submits. (Not built yet.)
 - Drag past touch slop moves the bubble and does not start dictation.
-- While recording or processing, the bubble shows a ✕. Tapping it cancels: the microphone stops, any request in flight is aborted, and a late result must not insert.
+- While recording, the bubble shows ■: a tap stops and submits, and a long press cancels. While processing, it shows ✕: a tap cancels. Cancel stops the microphone, deletes the take, aborts any request in flight, and a late result must not insert. The recording notification also has Stop and Cancel.
 
 The first version records until stop, then uploads, transcribes, optionally cleans, and inserts. Streaming partials come after that path is reliable.
 
@@ -348,6 +348,8 @@ The first version records from `AudioSource.MIC`, the phone's microphone, even w
 Starting the microphone is separate from overlay permission. Android checks both whether a foreground service may start from the current app state and whether that service may use the while-in-use microphone permission. Neither an overlay nor a bubble tap is on the documented while-in-use exemption list. What makes direct start work is the binding: the system binds every enabled accessibility service with `Context.BIND_INCLUDE_CAPABILITIES` (`AccessibilityServiceConnection.bindLocked()` in AOSP), so the service process receives the system's foreground capabilities, microphone included. Wispr Flow on Android starts recording on a bubble tap without opening a screen.
 
 Capture therefore starts directly from the bubble, with no activity in between. Opening an activity would take focus from the destination field and end its input session. A notification action that starts capture stays as recovery if a device refuses the direct start. The while-in-use check on foreground services applies to apps targeting API 34 and higher, so the result depends on `targetSdk` as well as the OS version. `targetSdk` is the current stable API level, at least 34. Build step 3 confirms direct start on Android 13, 14, and 15 hardware, records `targetSdk` and OS version with each result, and keeps the exception type on failure (`SecurityException` or `ForegroundServiceStartNotAllowedException`). A bubble tap and a notification action are different exemptions, so the notification fallback is tested on the same devices. [Foreground service restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start), [`AccessibilityServiceConnection`](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/services/accessibility/java/com/android/server/accessibility/AccessibilityServiceConnection.java)
+
+Verified on a Samsung phone running Android 16 (API 36) with `targetSdk` 35: a bubble tap starts the microphone foreground service directly, and the take carries real audio (non-zero peak), not the silence Android gives a blocked recorder. App-ops shows the microphone running only between start and stop or cancel.
 
 The foreground notification includes Stop. Recording is released on stop, cancel, error, and teardown. Capture does not restart at boot. [Foreground service background-start limits](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)
 
