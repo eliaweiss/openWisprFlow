@@ -21,11 +21,13 @@ import java.util.concurrent.Executors
  * API 33), shows the bubble while a dictation-capable editor has an input connection and the
  * keyboard is open, and inserts text with commitText.
  *
- * Build step 5: a bubble tap starts recording through [CaptureService], straight from the
+ * Build step 6: a bubble tap starts recording through [CaptureService], straight from the
  * accessibility service with no activity in between. A second tap stops and submits; a long press
  * cancels. The take is transcribed by google/gemini-3.5-transcribe through AI Gateway, with the
  * user's own key, with custom vocabulary from the personal dictionary and from name-like terms
- * near the cursor. The transcript is inserted only if the editor is still the one the take started
+ * near the cursor. With cleanup on (the default) the verbatim transcript is rewritten by
+ * google/gemini-3.5-flash-lite into insertable text; with it off, the smart transcript is used as
+ * is. The result is inserted only if the editor is still the one the take started
  * in (HLD section 4); otherwise it goes to the copy preview.
  *
  * All state lives on the main thread. Reads of the target field run on [worker]; network calls
@@ -55,7 +57,8 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         var recording = true
         /** Visible text near the field, nearest first. In memory only, for this session. */
         var nearby: List<String> = emptyList()
-        var call: TranscriptionCall? = null
+        /** Aborts the request in flight (transcription or cleanup), if any. */
+        var cancelRequest: (() -> Unit)? = null
         var committed = false
         var awaitingConfirm = false
         var insertAt: Int? = null
@@ -219,9 +222,12 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         // The field's own text is the nearest context, then the rest of the screen.
         val nearby = listOfNotNull(s.start.context?.before, s.start.context?.after) + s.nearby
         val vocabulary = Vocabulary.build(Dictionary.load(this), nearby)
-        // Smart mode removes fillers in the recognizer while there is no cleanup step (step 6).
-        val call = TranscriptionCall(key, take.file, TranscriptionOptions(TranscriptionOptions.SMART, vocabulary))
-        s.call = call
+        // Cleanup needs the verbatim transcript (fillers and self-corrections intact); without it,
+        // smart mode removes fillers in the recognizer (HLD section 3).
+        val cleanup = AppSettings.useCleanup(this)
+        val mode = if (cleanup) TranscriptionOptions.VERBATIM else TranscriptionOptions.SMART
+        val call = TranscriptionCall(key, take.file, TranscriptionOptions(mode, vocabulary))
+        s.cancelRequest = call::cancel
         Log.d(TAG, "session ${s.id} vocabulary ${vocabulary.size} terms")
         network.execute {
             val started = System.currentTimeMillis()
@@ -229,15 +235,17 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
             val elapsed = System.currentTimeMillis() - started
             main.post {
                 if (session !== s) return@post // Cancelled while transcribing.
-                s.call = null
+                s.cancelRequest = null
                 result.fold(
                     onSuccess = { transcript ->
                         Log.d(TAG, "session ${s.id} transcribed in $elapsed ms, ${transcript.text.length} chars")
-                        if (transcript.text.isBlank()) {
-                            endSession(s)
-                            Toast.makeText(this, R.string.nothing_heard, Toast.LENGTH_SHORT).show()
-                        } else {
-                            onResult(s, transcript.text)
+                        when {
+                            transcript.text.isBlank() -> {
+                                endSession(s)
+                                Toast.makeText(this, R.string.nothing_heard, Toast.LENGTH_SHORT).show()
+                            }
+                            cleanup -> clean(s, key, transcript.text)
+                            else -> onResult(s, transcript.text)
                         }
                     },
                     onFailure = { error ->
@@ -251,6 +259,43 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                         ).show()
                     },
                 )
+            }
+        }
+    }
+
+    /**
+     * Rewrites the verbatim transcript with the cleanup model. On any failure the transcript itself
+     * is inserted instead (HLD section 5, Cleanup).
+     */
+    private fun clean(s: Session, key: String, transcript: String) {
+        val ctx = s.start.context
+        val input = CleanupInput(
+            transcript = transcript,
+            before = ctx?.before,
+            selected = ctx?.selected,
+            after = ctx?.after,
+            nearby = s.nearby,
+            dictionary = Dictionary.load(this),
+        )
+        val call = CleanupCall(key, AppSettings.cleanupPrompt(this), input)
+        s.cancelRequest = call::cancel
+        network.execute {
+            val started = System.currentTimeMillis()
+            val result = runCatching { call.execute() }
+            val elapsed = System.currentTimeMillis() - started
+            main.post {
+                if (session !== s) return@post // Cancelled while cleaning up.
+                s.cancelRequest = null
+                val cleaned = result.getOrNull()?.takeIf { it.isNotBlank() }
+                if (cleaned != null) {
+                    Log.d(TAG, "session ${s.id} cleaned in $elapsed ms, ${transcript.length} -> ${cleaned.length} chars")
+                    onResult(s, cleaned)
+                } else {
+                    val error = result.exceptionOrNull()
+                    Log.w(TAG, "session ${s.id} cleanup failed after $elapsed ms: ${error?.javaClass?.simpleName}")
+                    Toast.makeText(this, R.string.cleanup_failed, Toast.LENGTH_SHORT).show()
+                    onResult(s, transcript)
+                }
             }
         }
     }
@@ -340,7 +385,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         val s = session ?: return
         Log.d(TAG, "session ${s.id} cancelled")
         if (s.recording) CaptureService.cancel(this)
-        s.call?.cancel()
+        s.cancelRequest?.invoke()
         endSession(s)
     }
 

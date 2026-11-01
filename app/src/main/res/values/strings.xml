@@ -23,7 +23,7 @@
     <string name="status_disabled">The dictation service is off.</string>
     <string name="open_accessibility_settings">Open accessibility settings</string>
     <string name="setup_steps">To turn it on: Accessibility → openWisprFlow dictation → Use openWisprFlow dictation.\n\nIf the switch is greyed out (\"restricted setting\"), go to App info → ⋮ menu → Allow restricted settings, then try again.</string>
-    <string name="build_step_note">Build step 5: tap the bubble to record, tap again (■) to stop, long press to cancel. The transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy. Cleanup comes in step 6.</string>
+    <string name="build_step_note">Build step 6: tap the bubble to record, tap again (■) to stop, long press to cancel. The cleaned transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy.</string>
     <string name="allow_microphone">Allow microphone</string>
 
     <string name="api_key_title">AI Gateway API key</string>
@@ -44,7 +44,18 @@
     <string name="dictionary_save">Save dictionary</string>
     <string name="dictionary_saved">Dictionary saved (%1$d).</string>
     <string name="screen_context_switch">Use names on screen as hints</string>
-    <string name="screen_context_explainer">While you dictate, name-like words near the text field (people, places, product names) are sent with the audio as spelling hints. The rest of the screen is not sent.</string>
+    <string name="screen_context_explainer">While you dictate, name-like words near the text field (people, places, product names) are sent with the audio as spelling hints. With cleanup on, up to 1,500 characters of text near the field also go to the cleanup model as context.</string>
+    <string name="cleanup_title">Cleanup</string>
+    <string name="cleanup_switch">Clean up with Gemini 3.5 Flash Lite</string>
+    <string name="cleanup_explainer">A second call rewrites the verbatim transcript into text ready to insert: punctuation, fillers removed, spoken corrections resolved. It sees the text around the cursor, your dictionary and, with screen hints on, text near the field. Off: the speech model\'s own tidy transcript is inserted, one call instead of two.</string>
+    <string name="cleanup_prompt_label">Cleanup prompt. The app always adds rules that keep screen text as data and the reply as JSON.</string>
+    <string name="cleanup_prompt_save">Save prompt</string>
+    <string name="cleanup_prompt_reset">Reset to default</string>
+    <string name="cleanup_prompt_saved">Prompt saved.</string>
+    <string name="cleanup_eval">Run cleanup check</string>
+    <string name="cleanup_eval_running">Running %1$d of %2$d…</string>
+    <string name="cleanup_eval_done">%1$d of %2$d passed.</string>
+    <string name="cleanup_failed">Cleanup failed; inserted the transcript.</string>
     <string name="nothing_heard">Nothing was heard.</string>
     <string name="transcription_failed">Transcription failed: %1$s</string>
     <string name="mic_granted">Microphone access is allowed.</string>
