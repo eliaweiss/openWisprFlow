@@ -3,6 +3,7 @@ package app.openwisprflow
 import android.content.Context
 import android.graphics.PixelFormat
 import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.TextView
@@ -31,24 +32,26 @@ class LiveTextController(private val context: Context) {
         val v = TextView(context).apply {
             setBackgroundResource(R.drawable.preview_background)
             setTextColor(context.getColor(R.color.preview_text))
-            textSize = 15f
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, context.resources.getDimension(R.dimen.text_body))
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.START
-            val pad = (12 * density).roundToInt()
-            setPadding(pad, pad / 2, pad, pad / 2)
-            alpha = 0.92f
+            val pad = context.resources.getDimensionPixelSize(R.dimen.field_padding)
+            setPadding(pad, pad * 2 / 3, pad, pad * 2 / 3)
+            elevation = 6 * density
+            alpha = 0.95f
         }
-        val margin = (16 * density).roundToInt()
+        val margin = context.resources.getDimensionPixelSize(R.dimen.screen_padding)
+        // Inset from both screen edges, like the copy preview card.
+        val width = windowManager.currentWindowMetrics.bounds.width() - 2 * margin
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
+            width,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            horizontalMargin = 0f
-            x = 0
+            x = margin
             // Two lines of text plus padding, with a small gap above the bubble.
             y = (bubbleTop - 72 * density).roundToInt().coerceAtLeast(margin)
         }

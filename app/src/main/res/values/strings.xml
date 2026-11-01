@@ -6,6 +6,13 @@
     <string name="bubble_description">Dictate</string>
     <string name="bubble_cancel_description">Cancel dictation</string>
     <string name="bubble_stop_description">Stop and insert. Long press to cancel.</string>
+    <string name="translation_failed_reason">translation failed</string>
+    <string name="history_translated">%1$s · translated to %2$s</string>
+    <string name="translate_title">Translate</string>
+    <string name="translate_explainer">Long-press the bubble to dictate a translation: it turns green, you speak in any language, tap to stop, and the text is inserted in the language below.</string>
+    <string name="translate_language_hint">Brazilian Portuguese</string>
+    <string name="translate_language_save">Save language</string>
+    <string name="translate_language_saved">Translations go into %1$s.</string>
 
     <string name="recording_channel">Recording</string>
     <string name="recording_title">Recording dictation</string>
@@ -80,4 +87,8 @@
     <string name="mic_granted">Microphone access is allowed.</string>
     <string name="play_last_take">Play last take</string>
     <string name="no_take">No take recorded yet.</string>
+
+    <string name="section_setup">Setup</string>
+    <string name="section_live">Live text</string>
+    <string name="section_diagnostics">Diagnostics</string>
 </resources>

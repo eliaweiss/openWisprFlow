@@ -23,6 +23,8 @@ data class HistoryEntry(
     val detail: String? = null,
     val audioPath: String? = null,
     val promptHash: String? = null,
+    /** The target language of a translate take; null for plain dictation. */
+    val translateTo: String? = null,
 )
 
 /**
@@ -112,6 +114,7 @@ object History {
             .putOpt("detail", e.detail)
             .putOpt("audio_path", e.audioPath)
             .putOpt("cleanup_prompt_hash", e.promptHash)
+            .putOpt("translate_to", e.translateTo)
     }).toString()
 
     fun fromJson(json: String): List<HistoryEntry> {
@@ -128,6 +131,7 @@ object History {
                 detail = opt("detail"),
                 audioPath = opt("audio_path"),
                 promptHash = opt("cleanup_prompt_hash"),
+                translateTo = opt("translate_to"),
             )
         }
     }

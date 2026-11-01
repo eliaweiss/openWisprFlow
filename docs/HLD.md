@@ -36,7 +36,7 @@ flowchart TD
 Gestures on the bubble:
 
 - Tap starts recording. Tap again stops and submits.
-- Hold records while pressed. Release stops and submits. (Not built yet.)
+- Long press on the idle bubble starts a translate take: the bubble turns green, and after stop the transcript is cleaned up and translated into the language set in Settings (default Brazilian Portuguese) in one Flash Lite call, then inserted through the same checks. The spoken-word safety net is off for translation; if translation fails, the untranslated transcript is offered for copy, never inserted. History records the target language, and a retry translates again. Live text is not used for translate takes.
 - Drag past touch slop moves the bubble and does not start dictation.
 - While recording, the bubble shows ■: a tap stops and submits, and a long press cancels. While processing, it shows ✕: a tap cancels. Cancel stops the microphone, deletes the take, aborts any request in flight, and a late result must not insert. The recording notification also has Stop and Cancel.
 

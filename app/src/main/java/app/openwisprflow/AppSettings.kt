@@ -10,6 +10,19 @@ object AppSettings {
     private const val CLEANUP = "cleanup"
     private const val CLEANUP_PROMPT = "cleanup_prompt"
     private const val LIVE = "live_transcription"
+    private const val TRANSLATE_LANGUAGE = "translate_language"
+    const val DEFAULT_TRANSLATE_LANGUAGE = "Brazilian Portuguese"
+
+    /** The language a long press on the bubble translates into. */
+    fun translateLanguage(context: Context): String =
+        prefs(context).getString(TRANSLATE_LANGUAGE, null) ?: DEFAULT_TRANSLATE_LANGUAGE
+
+    fun setTranslateLanguage(context: Context, language: String) {
+        val trimmed = language.trim()
+        prefs(context).edit().apply {
+            if (trimmed.isEmpty()) remove(TRANSLATE_LANGUAGE) else putString(TRANSLATE_LANGUAGE, trimmed)
+        }.apply()
+    }
 
     /**
      * Whether audio streams to the live model while recording, with text shown above the bubble.

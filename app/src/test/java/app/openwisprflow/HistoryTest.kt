@@ -20,8 +20,10 @@ class HistoryTest {
     @Test
     fun jsonRoundTripKeepsEveryFieldAndNulls() {
         val failed = HistoryEntry("s-2", 2_000_000L, HistoryStatus.FAILED, detail = "HTTP 401: Invalid API key")
-        val back = History.fromJson(History.toJson(listOf(entry, failed)))
-        assertEquals(listOf(entry, failed), back)
+        val translated = entry.copy(id = "s-3", finalText = "Vamos nos encontrar às seis.", translateTo = "Brazilian Portuguese")
+        val back = History.fromJson(History.toJson(listOf(entry, failed, translated)))
+        assertEquals(listOf(entry, failed, translated), back)
+        assertNull(back[0].translateTo)
         assertNull(back[1].raw)
         assertNull(back[1].audioPath)
     }

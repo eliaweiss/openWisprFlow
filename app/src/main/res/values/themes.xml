@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Root of the Owf.* style names; holds nothing itself. -->
+    <style name="Owf" />
+
+    <!-- Light base; values-night/themes.xml swaps in the dark parent and bar flags. -->
+    <style name="Owf.Base" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="Theme.Owf" parent="Owf.Base">
+        <item name="android:colorPrimary">@color/accent</item>
+        <item name="android:colorPrimaryDark">@color/background</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorControlActivated">@color/accent</item>
+        <item name="android:colorControlNormal">@color/text_secondary</item>
+        <item name="android:colorControlHighlight">@color/ripple</item>
+        <item name="android:colorBackground">@color/background</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        <item name="android:textColorHighlight">@color/accent_container</item>
+        <item name="android:textViewStyle">@style/Owf.Body</item>
+        <item name="android:buttonStyle">@style/Owf.Button</item>
+        <item name="android:editTextStyle">@style/Owf.EditText</item>
+        <item name="android:switchStyle">@style/Owf.Switch</item>
+        <item name="android:listDivider">@color/outline</item>
+    </style>
+
+    <!-- Text -->
+    <style name="Owf.Headline" parent="android:Widget.Material.TextView">
+        <item name="android:textSize">@dimen/text_headline</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">-0.01</item>
+    </style>
+
+    <style name="Owf.Title" parent="android:Widget.Material.TextView">
+        <item name="android:textSize">@dimen/text_title</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="Owf.Body" parent="android:Widget.Material.TextView">
+        <item name="android:textSize">@dimen/text_body</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:lineSpacingExtra">3sp</item>
+    </style>
+
+    <style name="Owf.Caption" parent="Owf.Body">
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:lineSpacingExtra">2sp</item>
+    </style>
+
+    <style name="Owf.Mono" parent="Owf.Caption">
+        <item name="android:textSize">@dimen/text_mono</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
+
+    <!-- Containers -->
+    <style name="Owf.Card">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">@dimen/section_gap</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:padding">@dimen/card_padding</item>
+        <item name="android:background">@drawable/card_background</item>
+    </style>
+
+    <style name="Owf.Card.Accent">
+        <item name="android:background">@drawable/card_background_accent</item>
+    </style>
+
+    <style name="Owf.Divider">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:layout_marginTop">@dimen/item_gap</item>
+        <item name="android:layout_marginBottom">@dimen/item_gap</item>
+        <item name="android:background">@color/outline</item>
+    </style>
+
+    <!-- Controls -->
+    <style name="Owf.Button" parent="android:Widget.Material.Button">
+        <item name="android:background">@drawable/button_filled</item>
+        <item name="android:textColor">@color/button_filled_text</item>
+        <item name="android:textSize">@dimen/text_button</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:letterSpacing">0.01</item>
+        <item name="android:minHeight">@dimen/button_height</item>
+        <item name="android:minWidth">64dp</item>
+        <item name="android:paddingStart">@dimen/button_padding</item>
+        <item name="android:paddingEnd">@dimen/button_padding</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+
+    <style name="Owf.Button.Tonal">
+        <item name="android:background">@drawable/button_tonal</item>
+        <item name="android:textColor">@color/button_tonal_text</item>
+    </style>
+
+    <style name="Owf.Button.Text">
+        <item name="android:background">@drawable/button_text</item>
+        <item name="android:textColor">@color/button_text_text</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+    </style>
+
+    <style name="Owf.EditText" parent="android:Widget.Material.EditText">
+        <item name="android:background">@drawable/field_background</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        <item name="android:textSize">@dimen/text_body</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:padding">@dimen/field_padding</item>
+        <item name="android:textCursorDrawable">@drawable/field_cursor</item>
+    </style>
+
+    <style name="Owf.Switch" parent="android:Widget.Material.CompoundButton.Switch">
+        <item name="android:textSize">@dimen/text_body</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:switchPadding">16dp</item>
+        <item name="android:background">@null</item>
+    </style>
+</resources>

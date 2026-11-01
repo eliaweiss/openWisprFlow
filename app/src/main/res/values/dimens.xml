@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spacing, shape and type sizes shared by every screen and overlay. -->
+<resources>
+    <dimen name="screen_padding">16dp</dimen>
+    <dimen name="card_padding">20dp</dimen>
+    <dimen name="section_gap">16dp</dimen>
+    <dimen name="item_gap">16dp</dimen>
+    <dimen name="text_gap">6dp</dimen>
+
+    <dimen name="card_radius">20dp</dimen>
+    <dimen name="control_radius">12dp</dimen>
+    <dimen name="button_height">44dp</dimen>
+    <dimen name="button_padding">20dp</dimen>
+    <dimen name="field_padding">14dp</dimen>
+
+    <dimen name="text_headline">28sp</dimen>
+    <dimen name="text_title">18sp</dimen>
+    <dimen name="text_body">15sp</dimen>
+    <dimen name="text_caption">13sp</dimen>
+    <dimen name="text_mono">12sp</dimen>
+    <dimen name="text_button">14sp</dimen>
+</resources>

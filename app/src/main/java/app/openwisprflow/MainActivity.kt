@@ -80,6 +80,13 @@ class MainActivity : Activity() {
             setOnCheckedChangeListener { _, checked -> AppSettings.setUseScreenContext(this@MainActivity, checked) }
         }
 
+        val language = findViewById<EditText>(R.id.translate_language)
+        language.setText(AppSettings.translateLanguage(this))
+        findViewById<Button>(R.id.translate_language_save).setOnClickListener {
+            AppSettings.setTranslateLanguage(this, language.text.toString())
+            language.setText(AppSettings.translateLanguage(this))
+            Toast.makeText(this, getString(R.string.translate_language_saved, AppSettings.translateLanguage(this)), Toast.LENGTH_SHORT).show()
+        }
         findViewById<Switch>(R.id.live_transcription).apply {
             isChecked = AppSettings.useLiveTranscription(this@MainActivity)
             setOnCheckedChangeListener { _, checked -> AppSettings.setUseLiveTranscription(this@MainActivity, checked) }

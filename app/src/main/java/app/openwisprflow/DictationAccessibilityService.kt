@@ -32,6 +32,9 @@ import java.util.concurrent.Executors
  * section 4); otherwise it goes to the copy preview. Every take's outcome is recorded in
  * [History], with its audio kept for retry, except in incognito fields.
  *
+ * A long press on the idle bubble starts a translate take instead: the transcript is cleaned up
+ * and translated into the language set on the setup screen, then inserted the same way.
+ *
  * With live transcription on, audio also streams to google/gemini-3.5-transcribe-live while the
  * user talks and the text appears above the bubble ([LiveTextController]); its final transcript
  * replaces the upload after stop. Any streaming failure falls back to uploading the take.
@@ -61,7 +64,13 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     private var nextSessionId = 0L
     private var session: Session? = null
 
-    private class Session(val id: Long, var start: EditorSnapshot, val incognito: Boolean) {
+    private class Session(
+        val id: Long,
+        var start: EditorSnapshot,
+        val incognito: Boolean,
+        /** Set for a translate take: the target language. Null for plain dictation. */
+        val translateTo: String?,
+    ) {
         var recording = true
         var take: Take? = null
         /** The speech model's transcript, kept for history. */
@@ -171,18 +180,22 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     private fun onBubbleTap() {
         val s = session
         when {
-            s == null -> startDictation()
+            s == null -> startDictation(translate = false)
             s.recording -> CaptureService.stop(this)
             else -> cancelSession()
         }
     }
 
+    /** On the idle bubble a long press starts a translate take; while recording it cancels. */
     private fun onBubbleLongPress() {
-        val s = session ?: return
-        if (s.recording) cancelSession()
+        val s = session
+        when {
+            s == null -> startDictation(translate = true)
+            s.recording -> cancelSession()
+        }
     }
 
-    private fun startDictation() {
+    private fun startDictation(translate: Boolean) {
         preview?.dismiss()
         if (!ApiKeyStore.has(this)) {
             // Without a key the bubble opens the setup screen instead of recording.
@@ -196,14 +209,20 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         }
         val start = currentIdentity() ?: return
         val connection = inputMethod?.currentInputConnection ?: return
-        val s = Session(++nextSessionId, start, editorIncognito)
+        val s = Session(
+            ++nextSessionId,
+            start,
+            editorIncognito,
+            translateTo = if (translate) AppSettings.translateLanguage(this) else null,
+        )
         session = s
-        bubble?.setState(BubbleController.State.RECORDING)
-        Log.d(TAG, "session ${s.id} started")
+        bubble?.setState(BubbleController.State.RECORDING, translate)
+        Log.d(TAG, "session ${s.id} started${if (translate) " (translate)" else ""}")
 
         // Live audio is held by the transcriber until the vocabulary is known and it connects.
         val key = ApiKeyStore.get(this)
-        if (key != null && AppSettings.useLiveTranscription(this)) {
+        // Live text shows the spoken language, so a translate take does not stream.
+        if (key != null && !translate && AppSettings.useLiveTranscription(this)) {
             val live = LiveTranscriber(key, LiveListener(s))
             s.live = live
             CaptureService.frameListener = live::sendAudio
@@ -240,7 +259,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         if (s.id != sessionId || !s.recording) return
         s.recording = false
         s.take = take
-        bubble?.setState(BubbleController.State.PROCESSING)
+        bubble?.setState(BubbleController.State.PROCESSING, s.translateTo != null)
         Log.d(TAG, "session ${s.id} take ${take.durationMs} ms, peak ${take.peak}")
         val live = s.live
         if (live == null) {
@@ -266,7 +285,8 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         Log.d(TAG, "session ${s.id} vocabulary ${vocabulary.size} terms")
         // Cleanup needs the verbatim transcript (fillers and self-corrections intact); without it,
         // smart mode removes fillers in the recognizer (HLD section 3).
-        val mode = if (AppSettings.useCleanup(this)) TranscriptionOptions.VERBATIM else TranscriptionOptions.SMART
+        val verbatim = AppSettings.useCleanup(this) || s.translateTo != null
+        val mode = if (verbatim) TranscriptionOptions.VERBATIM else TranscriptionOptions.SMART
         return TranscriptionOptions(mode, vocabulary)
     }
 
@@ -354,7 +374,8 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                 finish(s, HistoryStatus.NOTHING_HEARD)
                 Toast.makeText(this, R.string.nothing_heard, Toast.LENGTH_SHORT).show()
             }
-            cleanup -> clean(s, key, text)
+            // A translate take always goes through the model, whatever the cleanup setting.
+            cleanup || s.translateTo != null -> clean(s, key, text)
             else -> onResult(s, text)
         }
     }
@@ -373,9 +394,10 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
             nearby = s.nearby,
             dictionary = Dictionary.load(this),
         )
-        val prompt = AppSettings.cleanupPrompt(this)
+        val translateTo = s.translateTo
+        val prompt = if (translateTo != null) CleanupPrompt.translation(translateTo) else AppSettings.cleanupPrompt(this)
         s.promptHash = History.promptHash(prompt)
-        val call = CleanupCall(key, prompt, input)
+        val call = CleanupCall(key, prompt, input, checkSpokenWords = translateTo == null)
         s.cancelRequest = call::cancel
         network.execute {
             val started = System.currentTimeMillis()
@@ -388,6 +410,11 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                 if (cleaned != null) {
                     Log.d(TAG, "session ${s.id} cleaned in $elapsed ms, ${transcript.length} -> ${cleaned.length} chars")
                     onResult(s, cleaned)
+                } else if (translateTo != null) {
+                    // The untranslated transcript is not what was asked for: offer it for copy only.
+                    val error = result.exceptionOrNull()
+                    Log.w(TAG, "session ${s.id} translation failed after $elapsed ms: ${error?.javaClass?.simpleName}")
+                    showPreview(s, transcript, getString(R.string.translation_failed_reason))
                 } else {
                     val error = result.exceptionOrNull()
                     Log.w(TAG, "session ${s.id} cleanup failed after $elapsed ms: ${error?.javaClass?.simpleName}")
@@ -493,6 +520,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                 detail = detail,
                 audioPath = take.file.absolutePath,
                 promptHash = s.promptHash,
+                translateTo = s.translateTo,
             ),
         )
     }

@@ -1,8 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The app's palette. Light values here, dark ones in values-night/colors.xml. -->
 <resources>
+    <!-- Brand accent. accent is for controls and links; on_accent is text on a filled accent. -->
+    <color name="accent">#FF3D5AFE</color>
+    <color name="on_accent">#FFFFFFFF</color>
+    <color name="accent_container">#FFE6E9FF</color>
+    <color name="on_accent_container">#FF14228C</color>
+
+    <color name="background">#FFF4F5F9</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="field">#FFF4F5F9</color>
+    <color name="outline">#FFE1E3EB</color>
+    <color name="outline_strong">#FFC3C6D3</color>
+    <color name="text_primary">#FF1B1C22</color>
+    <color name="text_secondary">#FF5B5E6E</color>
+    <color name="text_hint">#FF8F92A1</color>
+    <color name="disabled">#1F1B1C22</color>
+    <color name="ripple">#1F3D5AFE</color>
+
+    <!-- Floating bubble: idle, recording, recording a translation. -->
     <color name="bubble">#FF3D5AFE</color>
-    <color name="bubble_busy">#FFD32F2F</color>
-    <color name="preview_surface">#FFFFFFFF</color>
-    <color name="preview_text">#FF1C1B1F</color>
-    <color name="preview_secondary">#FF6B6870</color>
+    <color name="bubble_busy">#FFE53935</color>
+    <color name="bubble_translate">#FF2E7D32</color>
+    <color name="bubble_ring">#99FFFFFF</color>
+
+    <!-- Overlay cards (copy preview, live text) share the app surface. -->
+    <color name="preview_surface">@color/surface</color>
+    <color name="preview_text">@color/text_primary</color>
+    <color name="preview_secondary">@color/text_secondary</color>
 </resources>

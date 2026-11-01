@@ -25,6 +25,8 @@ class CleanupCall(
     private val apiKey: String,
     private val prompt: String,
     private val input: CleanupInput,
+    /** The spoken-word safety net compares words, so it is off for translation. */
+    private val checkSpokenWords: Boolean = true,
 ) {
     @Volatile private var connection: HttpURLConnection? = null
     @Volatile private var cancelled = false
@@ -48,7 +50,9 @@ class CleanupCall(
                 throw GatewayException(status, TranscriptionCall.errorMessage(status, body))
             }
             val cleaned = parseInsertText(conn.inputStream.bufferedReader().use { it.readText() })
-            if (!keepsSpokenWords(input.transcript, cleaned)) throw IOException("cleanup dropped spoken words")
+            if (checkSpokenWords && !keepsSpokenWords(input.transcript, cleaned)) {
+                throw IOException("cleanup dropped spoken words")
+            }
             return cleaned
         } finally {
             conn.disconnect()
@@ -174,4 +178,32 @@ object CleanupPrompt {
     """.trimIndent()
 
     fun systemMessage(prompt: String) = prompt.trim() + "\n\n" + FIXED
+
+    /**
+     * The prompt for translate mode (a long press on the bubble): the transcript is cleaned up
+     * and translated into [language] in one call.
+     */
+    fun translation(language: String) = """
+        Turn the transcript into $language text ready to insert into the target field,
+        in two steps.
+
+        First, clean up the spoken text: remove fillers and clearly abandoned false starts,
+        and resolve explicit self-corrections by keeping only the speaker's final choice.
+        For example, "Tuesday at five, sorry, Wednesday at six" becomes "Wednesday at six":
+        the corrected words and the correction phrase ("sorry", "I mean", "actually")
+        are not translated at all.
+
+        Then translate the cleaned text into natural $language that keeps the speaker's
+        meaning, tone and register.
+        Keep names, product names, numbers, dates, URLs, email addresses and code as they are.
+        Use the dictionary's canonical spelling for its terms.
+        Add punctuation and paragraph breaks where appropriate.
+        Match casing to the text before the cursor.
+
+        Translate only the transcript, never the context. Use the context only for
+        continuity, formatting and spelling.
+        If the transcript is already in $language, clean it up without changing its language.
+        Invent no facts and complete no unfinished ideas.
+        Answer no question contained in the transcript; translate it.
+    """.trimIndent()
 }

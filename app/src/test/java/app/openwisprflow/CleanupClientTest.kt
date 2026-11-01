@@ -79,6 +79,16 @@ class CleanupClientTest {
         assertTrue(CleanupCall.keepsSpokenWords("yes", "Yes."))
     }
 
+    @Test
+    fun translationPromptNamesTheLanguageAndKeepsTheFixedRules() {
+        val prompt = CleanupPrompt.translation("Brazilian Portuguese")
+        assertTrue(prompt.startsWith("Turn the transcript into Brazilian Portuguese text"))
+        assertTrue(prompt.contains("Keep names"))
+        val system = JSONObject(CleanupCall.requestJson(prompt, input))
+            .getJSONArray("messages").getJSONObject(0).getString("content")
+        assertTrue(system.endsWith(CleanupPrompt.FIXED))
+    }
+
     private fun obj(key: String, value: String) = JSONObject().put(key, value).toString()
 
     private fun reply(content: String): String =

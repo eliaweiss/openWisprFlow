@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="preview_surface">#FF2B2930</color>
-    <color name="preview_text">#FFE6E1E5</color>
-    <color name="preview_secondary">#FFB0ACB4</color>
+    <color name="accent">#FF9AA8FF</color>
+    <color name="on_accent">#FF0D1660</color>
+    <color name="accent_container">#FF2A3270</color>
+    <color name="on_accent_container">#FFDDE1FF</color>
+
+    <color name="background">#FF111217</color>
+    <color name="surface">#FF1C1D24</color>
+    <color name="field">#FF25262E</color>
+    <color name="outline">#FF2F313B</color>
+    <color name="outline_strong">#FF4A4D5A</color>
+    <color name="text_primary">#FFE7E8EF</color>
+    <color name="text_secondary">#FFA9ACBB</color>
+    <color name="text_hint">#FF7C7F8D</color>
+    <color name="disabled">#1FE7E8EF</color>
+    <color name="ripple">#339AA8FF</color>
+
+    <color name="bubble_ring">#66FFFFFF</color>
 </resources>

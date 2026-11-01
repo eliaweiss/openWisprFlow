@@ -64,8 +64,10 @@ class HistoryActivity : Activity() {
         if (key == null || audio == null) return
         retrying += entry.id
         adapter.notifyDataSetChanged()
-        val cleanup = AppSettings.useCleanup(this)
-        val prompt = AppSettings.cleanupPrompt(this)
+        // A translated entry is retried as a translation into the same language.
+        val translateTo = entry.translateTo
+        val cleanup = AppSettings.useCleanup(this) || translateTo != null
+        val prompt = if (translateTo != null) CleanupPrompt.translation(translateTo) else AppSettings.cleanupPrompt(this)
         val dictionary = Dictionary.load(this)
         thread(name = "openWisprFlow-retry") {
             val updated = try {
@@ -75,6 +77,8 @@ class HistoryActivity : Activity() {
                 val final = when {
                     raw.isBlank() -> null
                     // The original field is gone, so cleanup runs without field context.
+                    translateTo != null ->
+                        CleanupCall(key, prompt, CleanupInput(raw, dictionary = dictionary), checkSpokenWords = false).execute()
                     cleanup -> runCatching { CleanupCall(key, prompt, CleanupInput(raw, dictionary = dictionary)).execute() }
                         .getOrNull() ?: raw.trim()
                     else -> raw.trim()
@@ -106,8 +110,12 @@ class HistoryActivity : Activity() {
             val view = convertView ?: layoutInflater.inflate(R.layout.history_item, parent, false)
             val entry = entries[position]
             val when_ = DateUtils.getRelativeTimeSpanString(entry.createdAt)
-            view.findViewById<TextView>(R.id.item_header).text =
-                getString(R.string.history_header, when_, getString(statusLabel(entry.status)))
+            val status = getString(statusLabel(entry.status))
+            view.findViewById<TextView>(R.id.item_header).text = getString(
+                R.string.history_header,
+                when_,
+                entry.translateTo?.let { getString(R.string.history_translated, status, it) } ?: status,
+            )
             val text = entry.finalText ?: entry.raw
             view.findViewById<TextView>(R.id.item_text).apply {
                 this.text = text ?: getString(R.string.history_no_text)

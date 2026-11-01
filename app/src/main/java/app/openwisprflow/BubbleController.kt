@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.WindowManager
@@ -50,7 +51,7 @@ class BubbleController(
         setPadding(padding, padding, padding, padding)
         contentDescription = context.getString(R.string.bubble_description)
         elevation = 6f * context.resources.displayMetrics.density
-        // Half transparent, so the content underneath stays visible.
+        // Partly transparent while idle, so the content underneath stays visible.
         alpha = BUBBLE_ALPHA
         setOnClickListener { onTap() }
         setOnTouchListener(DragListener())
@@ -63,16 +64,20 @@ class BubbleController(
 
     /**
      * Idle shows the microphone. Recording shows stop: a tap stops and submits, a long press
-     * cancels. Processing shows ✕: a tap cancels.
+     * cancels. Processing shows ✕: a tap cancels. In translate mode (started by a long press) the
+     * bubble is green instead of red.
      */
-    fun setState(state: State) {
+    fun setState(state: State, translate: Boolean = false) {
+        val busy = if (translate) R.drawable.bubble_background_translate else R.drawable.bubble_background_busy
         val (icon, background, description) = when (state) {
             State.IDLE -> Triple(R.drawable.ic_mic, R.drawable.bubble_background, R.string.bubble_description)
-            State.RECORDING -> Triple(R.drawable.ic_stop, R.drawable.bubble_background_busy, R.string.bubble_stop_description)
-            State.PROCESSING -> Triple(R.drawable.ic_close, R.drawable.bubble_background_busy, R.string.bubble_cancel_description)
+            State.RECORDING -> Triple(R.drawable.ic_stop, busy, R.string.bubble_stop_description)
+            State.PROCESSING -> Triple(R.drawable.ic_close, busy, R.string.bubble_cancel_description)
         }
         view.setImageResource(icon)
         view.setBackgroundResource(background)
+        // See-through only while idle; a live recording should be unmistakable.
+        view.alpha = if (state == State.IDLE) BUBBLE_ALPHA else 1f
         view.contentDescription = context.getString(description)
     }
 
@@ -99,6 +104,7 @@ class BubbleController(
         private val longPress = Runnable {
             longPressed = true
             view.isPressed = false
+            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             onLongPress()
         }
 
@@ -148,7 +154,7 @@ class BubbleController(
 
     private companion object {
         const val BUBBLE_SIZE_DP = 52
-        const val BUBBLE_ALPHA = 0.5f
+        const val BUBBLE_ALPHA = 0.7f
 
         /** Top of the bubble as a fraction of the window height; 1372 px on a 2340 px screen. */
         const val DEFAULT_Y_FRACTION = 0.5863f

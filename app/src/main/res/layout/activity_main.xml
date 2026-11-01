@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Settings. Each section is an Owf.Card; spacing, type and colours come from themes.xml. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -8,255 +9,359 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:paddingStart="@dimen/screen_padding"
+        android:paddingTop="@dimen/screen_padding"
+        android:paddingEnd="@dimen/screen_padding"
+        android:paddingBottom="32dp">
 
         <TextView
+            style="@style/Owf.Headline"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/app_name"
-            android:textAppearance="@android:style/TextAppearance.DeviceDefault.Large" />
-
-        <TextView
-            android:id="@+id/status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium" />
-
-        <Button
-            android:id="@+id/open_settings"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/open_accessibility_settings" />
-
-        <Button
-            android:id="@+id/open_history"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/open_history" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/setup_steps" />
-
-        <TextView
-            android:id="@+id/mic_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/mic_granted" />
-
-        <Button
-            android:id="@+id/allow_microphone"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
             android:layout_marginTop="8dp"
-            android:text="@string/allow_microphone" />
+            android:text="@string/app_name" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/api_key_title"
-            android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium" />
+        <!-- Service status -->
+        <LinearLayout style="@style/Owf.Card.Accent">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/api_key_explainer" />
-
-        <EditText
-            android:id="@+id/api_key"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="@string/api_key_hint"
-            android:importantForAutofill="no"
-            android:inputType="textPassword" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/status"
+                style="@style/Owf.Title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/on_accent_container" />
 
             <Button
-                android:id="@+id/api_key_save"
-                android:layout_width="wrap_content"
+                android:id="@+id/open_settings"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/api_key_save" />
+                android:layout_marginTop="@dimen/item_gap"
+                android:text="@string/open_accessibility_settings" />
 
             <Button
-                android:id="@+id/api_key_test"
-                android:layout_width="wrap_content"
+                android:id="@+id/open_history"
+                style="@style/Owf.Button.Text"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/api_key_test" />
-
-            <Button
-                android:id="@+id/api_key_remove"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/api_key_remove" />
+                android:layout_marginTop="4dp"
+                android:text="@string/open_history" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/api_key_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" />
+        <!-- Setup -->
+        <LinearLayout style="@style/Owf.Card">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/dictionary_title"
-            android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/dictionary_explainer" />
-
-        <EditText
-            android:id="@+id/dictionary"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="top"
-            android:hint="@string/dictionary_hint"
-            android:importantForAutofill="no"
-            android:inputType="textMultiLine|textNoSuggestions"
-            android:minLines="3" />
-
-        <Button
-            android:id="@+id/dictionary_save"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/dictionary_save" />
-
-        <Switch
-            android:id="@+id/screen_context"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/screen_context_switch" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/screen_context_explainer" />
-
-        <Switch
-            android:id="@+id/live_transcription"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/live_switch" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/live_explainer" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/cleanup_title"
-            android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium" />
-
-        <Switch
-            android:id="@+id/cleanup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/cleanup_switch" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/cleanup_explainer" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:labelFor="@id/cleanup_prompt"
-            android:text="@string/cleanup_prompt_label" />
-
-        <EditText
-            android:id="@+id/cleanup_prompt"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:gravity="top"
-            android:importantForAutofill="no"
-            android:inputType="textMultiLine|textNoSuggestions"
-            android:minLines="6"
-            android:textSize="13sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/cleanup_prompt_save"
+            <TextView
+                style="@style/Owf.Title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/cleanup_prompt_save" />
+                android:text="@string/section_setup" />
+
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/text_gap"
+                android:text="@string/setup_steps" />
+
+            <View style="@style/Owf.Divider" />
+
+            <TextView
+                android:id="@+id/mic_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/mic_granted" />
 
             <Button
-                android:id="@+id/cleanup_prompt_reset"
+                android:id="@+id/allow_microphone"
+                style="@style/Owf.Button.Tonal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/cleanup_prompt_reset" />
+                android:layout_marginTop="12dp"
+                android:text="@string/allow_microphone" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/cleanup_eval"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/cleanup_eval" />
+        <!-- API key -->
+        <LinearLayout style="@style/Owf.Card">
 
-        <TextView
-            android:id="@+id/cleanup_eval_results"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:fontFamily="monospace"
-            android:textSize="12sp" />
+            <TextView
+                style="@style/Owf.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/api_key_title" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/build_step_note"
-            android:textStyle="italic" />
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/text_gap"
+                android:text="@string/api_key_explainer" />
 
-        <TextView
-            android:id="@+id/diagnostics"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:fontFamily="monospace"
-            android:textSize="13sp" />
+            <EditText
+                android:id="@+id/api_key"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/item_gap"
+                android:hint="@string/api_key_hint"
+                android:importantForAutofill="no"
+                android:inputType="textPassword" />
 
-        <Button
-            android:id="@+id/play_last_take"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/play_last_take" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/api_key_save"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/api_key_save" />
+
+                <Button
+                    android:id="@+id/api_key_test"
+                    style="@style/Owf.Button.Tonal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/api_key_test" />
+
+                <Button
+                    android:id="@+id/api_key_remove"
+                    style="@style/Owf.Button.Text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/api_key_remove" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/api_key_status"
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Dictionary and screen hints -->
+        <LinearLayout style="@style/Owf.Card">
+
+            <TextView
+                style="@style/Owf.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/dictionary_title" />
+
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/text_gap"
+                android:text="@string/dictionary_explainer" />
+
+            <EditText
+                android:id="@+id/dictionary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/item_gap"
+                android:gravity="top"
+                android:hint="@string/dictionary_hint"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textNoSuggestions"
+                android:minLines="3" />
+
+            <Button
+                android:id="@+id/dictionary_save"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/dictionary_save" />
+
+            <View style="@style/Owf.Divider" />
+
+            <Switch
+                android:id="@+id/screen_context"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/screen_context_switch" />
+
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/screen_context_explainer" />
+        </LinearLayout>
+
+        <!-- Translate -->
+        <LinearLayout style="@style/Owf.Card">
+
+            <TextView
+                style="@style/Owf.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/translate_title" />
+
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/text_gap"
+                android:text="@string/translate_explainer" />
+
+            <EditText
+                android:id="@+id/translate_language"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/item_gap"
+                android:hint="@string/translate_language_hint"
+                android:importantForAutofill="no"
+                android:inputType="textCapWords" />
+
+            <Button
+                android:id="@+id/translate_language_save"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/translate_language_save" />
+        </LinearLayout>
+
+        <!-- Live text -->
+        <LinearLayout style="@style/Owf.Card">
+
+            <TextView
+                style="@style/Owf.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/section_live" />
+
+            <Switch
+                android:id="@+id/live_transcription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/live_switch" />
+
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/live_explainer" />
+        </LinearLayout>
+
+        <!-- Cleanup -->
+        <LinearLayout style="@style/Owf.Card">
+
+            <TextView
+                style="@style/Owf.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cleanup_title" />
+
+            <Switch
+                android:id="@+id/cleanup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/cleanup_switch" />
+
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/cleanup_explainer" />
+
+            <View style="@style/Owf.Divider" />
+
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:labelFor="@id/cleanup_prompt"
+                android:text="@string/cleanup_prompt_label" />
+
+            <EditText
+                android:id="@+id/cleanup_prompt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="monospace"
+                android:gravity="top"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textNoSuggestions"
+                android:minLines="6"
+                android:textSize="@dimen/text_caption" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/cleanup_prompt_save"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cleanup_prompt_save" />
+
+                <Button
+                    android:id="@+id/cleanup_prompt_reset"
+                    style="@style/Owf.Button.Text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/cleanup_prompt_reset" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/cleanup_eval"
+                style="@style/Owf.Button.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/cleanup_eval" />
+
+            <TextView
+                android:id="@+id/cleanup_eval_results"
+                style="@style/Owf.Mono"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Diagnostics -->
+        <LinearLayout style="@style/Owf.Card">
+
+            <TextView
+                style="@style/Owf.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/section_diagnostics" />
+
+            <TextView
+                style="@style/Owf.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/text_gap"
+                android:text="@string/build_step_note" />
+
+            <TextView
+                android:id="@+id/diagnostics"
+                style="@style/Owf.Mono"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/text_primary" />
+
+            <Button
+                android:id="@+id/play_last_take"
+                style="@style/Owf.Button.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/play_last_take" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>
