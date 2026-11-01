@@ -15,6 +15,7 @@ import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import java.io.File
@@ -62,6 +63,19 @@ class MainActivity : Activity() {
             refresh()
         }
         findViewById<Button>(R.id.api_key_test).setOnClickListener { testKey() }
+
+        val dictionary = findViewById<EditText>(R.id.dictionary)
+        dictionary.setText(Dictionary.format(Dictionary.load(this)))
+        findViewById<Button>(R.id.dictionary_save).setOnClickListener {
+            val entries = Dictionary.parse(dictionary.text.toString())
+            Dictionary.save(this, entries)
+            dictionary.setText(Dictionary.format(entries))
+            Toast.makeText(this, getString(R.string.dictionary_saved, entries.size), Toast.LENGTH_SHORT).show()
+        }
+        findViewById<Switch>(R.id.screen_context).apply {
+            isChecked = AppSettings.useScreenContext(this@MainActivity)
+            setOnCheckedChangeListener { _, checked -> AppSettings.setUseScreenContext(this@MainActivity, checked) }
+        }
     }
 
     /** Transcribes one second of silence: proves the key works and the model is available to it. */

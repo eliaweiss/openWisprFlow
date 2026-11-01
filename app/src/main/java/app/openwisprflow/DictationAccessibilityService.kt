@@ -21,10 +21,11 @@ import java.util.concurrent.Executors
  * API 33), shows the bubble while a dictation-capable editor has an input connection and the
  * keyboard is open, and inserts text with commitText.
  *
- * Build step 4: a bubble tap starts recording through [CaptureService], straight from the
+ * Build step 5: a bubble tap starts recording through [CaptureService], straight from the
  * accessibility service with no activity in between. A second tap stops and submits; a long press
  * cancels. The take is transcribed by google/gemini-3.5-transcribe through AI Gateway, with the
- * user's own key. The transcript is inserted only if the editor is still the one the take started
+ * user's own key, with custom vocabulary from the personal dictionary and from name-like terms
+ * near the cursor. The transcript is inserted only if the editor is still the one the take started
  * in (HLD section 4); otherwise it goes to the copy preview.
  *
  * All state lives on the main thread. Reads of the target field run on [worker]; network calls
@@ -52,6 +53,8 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
 
     private class Session(val id: Long, var start: EditorSnapshot) {
         var recording = true
+        /** Visible text near the field, nearest first. In memory only, for this session. */
+        var nearby: List<String> = emptyList()
         var call: TranscriptionCall? = null
         var committed = false
         var awaitingConfirm = false
@@ -176,11 +179,14 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         Log.d(TAG, "session ${s.id} started")
 
         // A failed or late read leaves the context empty; the identity checks still apply.
+        val useScreen = AppSettings.useScreenContext(this)
         worker.execute {
             val context = FieldContextReader.read(connection)
+            val nearby = if (useScreen) runCatching { ScreenContextReader.collect(this) }.getOrDefault(emptyList()) else emptyList()
             main.post {
                 if (session === s && editorGeneration == start.editorGeneration) {
                     s.start = s.start.copy(context = context)
+                    s.nearby = nearby
                 }
             }
         }
@@ -210,9 +216,13 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
             Toast.makeText(this, R.string.api_key_needed, Toast.LENGTH_LONG).show()
             return
         }
+        // The field's own text is the nearest context, then the rest of the screen.
+        val nearby = listOfNotNull(s.start.context?.before, s.start.context?.after) + s.nearby
+        val vocabulary = Vocabulary.build(Dictionary.load(this), nearby)
         // Smart mode removes fillers in the recognizer while there is no cleanup step (step 6).
-        val call = TranscriptionCall(key, take.file, TranscriptionOptions(TranscriptionOptions.SMART))
+        val call = TranscriptionCall(key, take.file, TranscriptionOptions(TranscriptionOptions.SMART, vocabulary))
         s.call = call
+        Log.d(TAG, "session ${s.id} vocabulary ${vocabulary.size} terms")
         network.execute {
             val started = System.currentTimeMillis()
             val result = runCatching { call.execute() }

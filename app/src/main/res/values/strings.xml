@@ -23,7 +23,7 @@
     <string name="status_disabled">The dictation service is off.</string>
     <string name="open_accessibility_settings">Open accessibility settings</string>
     <string name="setup_steps">To turn it on: Accessibility → openWisprFlow dictation → Use openWisprFlow dictation.\n\nIf the switch is greyed out (\"restricted setting\"), go to App info → ⋮ menu → Allow restricted settings, then try again.</string>
-    <string name="build_step_note">Build step 4: tap the bubble to record, tap again (■) to stop, long press to cancel. The transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy. Cleanup comes in step 6.</string>
+    <string name="build_step_note">Build step 5: tap the bubble to record, tap again (■) to stop, long press to cancel. The transcript is inserted if the same field is still focused and unchanged; otherwise it is shown with Copy. Cleanup comes in step 6.</string>
     <string name="allow_microphone">Allow microphone</string>
 
     <string name="api_key_title">AI Gateway API key</string>
@@ -38,6 +38,13 @@
     <string name="api_key_test_ok">The key works and google/gemini-3.5-transcribe answered.</string>
     <string name="api_key_test_failed">Test failed: %1$s</string>
     <string name="api_key_needed">Add your AI Gateway API key in openWisprFlow first.</string>
+    <string name="dictionary_title">Dictionary</string>
+    <string name="dictionary_explainer">Names and terms the speech model should spell your way, one per line. After \"=\", add ways a term tends to be misheard, separated by commas.</string>
+    <string name="dictionary_hint">openWisprFlow\nNablaLabs = nabla labs</string>
+    <string name="dictionary_save">Save dictionary</string>
+    <string name="dictionary_saved">Dictionary saved (%1$d).</string>
+    <string name="screen_context_switch">Use names on screen as hints</string>
+    <string name="screen_context_explainer">While you dictate, name-like words near the text field (people, places, product names) are sent with the audio as spelling hints. The rest of the screen is not sent.</string>
     <string name="nothing_heard">Nothing was heard.</string>
     <string name="transcription_failed">Transcription failed: %1$s</string>
     <string name="mic_granted">Microphone access is allowed.</string>

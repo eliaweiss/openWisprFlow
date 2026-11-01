@@ -6,7 +6,7 @@ The design is in [docs/HLD.md](docs/HLD.md).
 
 ## Status
 
-Build step 4 of 8. The bubble appears while a text field is focused and the keyboard is open. Tap it to record, tap again to stop, long-press to cancel. The take is transcribed by `google/gemini-3.5-transcribe` through AI Gateway with your own key, and the transcript is inserted only if the same field is still focused and unchanged; otherwise it is shown with Copy. Cleanup with a second model comes in step 6.
+Build step 5 of 8. The bubble appears while a text field is focused and the keyboard is open. Tap it to record, tap again to stop, long-press to cancel. The take is transcribed by `google/gemini-3.5-transcribe` through AI Gateway with your own key, with spelling hints from your personal dictionary and from name-like words near the text field. The transcript is inserted only if the same field is still focused and unchanged; otherwise it is shown with Copy. Cleanup with a second model comes in step 6.
 
 ## Requirements
 
@@ -32,4 +32,4 @@ If the switch is greyed out as a "restricted setting" (common for apps installed
 
 ## Privacy
 
-The accessibility service can read the focused field and type into it. It is used only for dictation. Password, number and phone fields are excluded. Audio goes to AI Gateway for the active dictation only, using the key you enter in the app. The key is stored encrypted with an Android Keystore key and is never logged.
+The accessibility service can read the focused field and type into it. It is used only for dictation. Password, number and phone fields are excluded. Audio goes to AI Gateway for the active dictation only, together with up to 100 spelling hints: your dictionary terms and name-like words near the text field (turn the latter off in the app). The rest of the screen is not sent. It is sent using the key you enter in the app. The key is stored encrypted with an Android Keystore key and is never logged.
