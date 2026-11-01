@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">openWisprFlow</string>
+    <string name="service_label">openWisprFlow dictation</string>
+    <string name="service_description">Shows a dictation bubble when you focus a text field, and types the dictated text into that field. It reads the focused field and nearby screen text only while a dictation is in progress.</string>
+    <string name="bubble_description">Dictate</string>
+
+    <string name="status_enabled">The dictation service is on. Focus a text field in any app and tap the bubble.</string>
+    <string name="status_disabled">The dictation service is off.</string>
+    <string name="open_accessibility_settings">Open accessibility settings</string>
+    <string name="setup_steps">To turn it on: Accessibility → openWisprFlow dictation → Use openWisprFlow dictation.\n\nIf the switch is greyed out (\"restricted setting\"), go to App info → ⋮ menu → Allow restricted settings, then try again.</string>
+    <string name="step1_note">Build step 1: tapping the bubble types a fixed test phrase.</string>
+</resources>

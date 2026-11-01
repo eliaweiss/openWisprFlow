@@ -1,0 +1,26 @@
+# Gradle and build output
+.gradle/
+build/
+*/build/
+.kotlin/
+
+# Machine-specific and private configuration
+local.properties
+*.keystore
+*.jks
+keystore.properties
+secrets.properties
+.env
+.env.*
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Build artifacts
+*.apk
+*.aab
+
+# OS
+.DS_Store
