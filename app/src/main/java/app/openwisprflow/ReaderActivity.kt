@@ -10,6 +10,8 @@ import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
 import android.util.Log
 import android.view.View
+import android.view.WindowInsets
+import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -68,10 +70,20 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
         title.setText(if (summarize) R.string.summary_title else R.string.reader_title)
         showStatus(getString(R.string.reader_preparing))
 
-        // The text scrolls inside the pop-up beyond 55% of the screen height.
-        val maxHeight = (resources.displayMetrics.heightPixels * 0.55f).toInt()
-        scroll.viewTreeObserver.addOnGlobalLayoutListener {
-            if (scroll.height > maxHeight) scroll.layoutParams = scroll.layoutParams.apply { height = maxHeight }
+        // The pop-up is 95% of the screen wide and grows with the text up to 95% of its height;
+        // beyond that the text scrolls inside it.
+        // The usable area is the screen between the status and navigation bars.
+        val metrics = windowManager.currentWindowMetrics
+        val bars = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars())
+        val usableWidth = metrics.bounds.width() - bars.left - bars.right
+        val usableHeight = metrics.bounds.height() - bars.top - bars.bottom
+        window.setLayout((usableWidth * SIZE).toInt(), WindowManager.LayoutParams.WRAP_CONTENT)
+        val root = findViewById<View>(R.id.reader_root)
+        root.viewTreeObserver.addOnGlobalLayoutListener {
+            val maxText = (usableHeight * SIZE).toInt() - (root.height - scroll.height)
+            if (scroll.height > maxText && maxText > 0) {
+                scroll.layoutParams = scroll.layoutParams.apply { height = maxText }
+            }
         }
 
         findViewById<ImageButton>(R.id.reader_close).setOnClickListener { finish() }
@@ -201,5 +213,7 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
 
     private companion object {
         const val TAG = "openWisprFlow"
+        /** Share of the screen the pop-up may take, across and down. */
+        const val SIZE = 0.95f
     }
 }
