@@ -5,7 +5,6 @@ import android.media.MediaDataSource
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 
@@ -26,6 +25,8 @@ object SentencePlayer {
     interface Listener {
         fun onSentence(index: Int, status: Status)
         fun onError(message: String)
+        /** The current sentence's request failed and is being tried again. */
+        fun onRetrying(reason: String, nextAttempt: Int, maxAttempts: Int)
         /** Another session started, or [stop] was called: this one is over. */
         fun onEnded()
     }
@@ -36,8 +37,8 @@ object SentencePlayer {
 
     private val main = Handler(Looper.getMainLooper())
     private val fetcher = Executors.newFixedThreadPool(PREFETCH_AHEAD)
-    /** Waits for the current sentence's audio; separate, so waiting never blocks a fetch. */
-    private val waiter = Executors.newSingleThreadExecutor()
+    /** Waits for the current sentence's audio, one thread per wait, so a slow one never holds up the next. */
+    private val waiter = Executors.newCachedThreadPool()
 
     private var key: String? = null
     private var sentences: List<String> = emptyList()
@@ -107,6 +108,8 @@ object SentencePlayer {
         report(Status.LOADING)
         // Requests for sentences we skipped back over stay cached; ones far behind are dropped.
         fetches.keys.filter { it < i - 1 }.forEach { fetches.remove(it)?.first?.cancel() }
+        // A prefetch that already failed gets a fresh request rather than repeating its old error.
+        fetches.entries.removeAll { (_, fetch) -> fetch.second.isDone && runCatching { fetch.second.get() }.isFailure }
         for (j in i..minOf(i + PREFETCH_AHEAD, sentences.lastIndex)) fetch(j)
         val future = fetches.getValue(i).second
         val id = session
@@ -118,40 +121,62 @@ object SentencePlayer {
 
     private fun fetch(i: Int) {
         if (i in fetches) return
-        val call = SpeechCall(key ?: return, Sentences.speakable(sentences[i]).take(SpeechCall.MAX_CHARS))
+        val id = session
+        val call = SpeechCall(
+            key ?: return,
+            Sentences.speakable(sentences[i]).take(SpeechCall.MAX_CHARS),
+            onRetry = RetryListener { next, max, reason ->
+                main.post {
+                    if (id == session && index == i && status == Status.LOADING) listener?.onRetrying(reason, next, max)
+                }
+            },
+        )
         fetches[i] = call to fetcher.submit<ByteArray> { call.execute() }
     }
 
     private fun onAudio(i: Int, result: Result<ByteArray>) {
         val wav = result.getOrElse { e ->
             val cause = e.cause ?: e
-            Log.w(TAG, "sentence ${i + 1} speech failed: ${cause.javaClass.simpleName} ${(cause as? GatewayException)?.status ?: ""}")
-            fetches.remove(i)
-            status = Status.PAUSED
-            listener?.onError(cause.message ?: cause.javaClass.simpleName)
+            AppLog.w(TAG, "sentence ${i + 1} speech failed: ${cause.brief()}")
+            failSentence(i, cause.message ?: cause.javaClass.simpleName)
             return
         }
-        Log.d(TAG, "sentence ${i + 1}/${sentences.size}: ${sentences[i].length} chars, ${wav.size} bytes")
-        player = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build(),
-            )
-            setDataSource(BytesSource(wav))
-            setOnCompletionListener {
-                if (index + 1 < sentences.size) {
-                    play(index + 1)
-                } else {
-                    releasePlayer()
-                    report(Status.DONE)
+        AppLog.d(TAG, "sentence ${i + 1}/${sentences.size}: ${sentences[i].length} chars, ${wav.size} bytes")
+        try {
+            player = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
+                setDataSource(BytesSource(wav))
+                setOnCompletionListener {
+                    if (index + 1 < sentences.size) {
+                        play(index + 1)
+                    } else {
+                        releasePlayer()
+                        report(Status.DONE)
+                    }
                 }
+                prepare()
+                start()
             }
-            prepare()
-            start()
+        } catch (e: Exception) {
+            // Audio the player can not open is a bad reply, not a reason to crash the pop-up.
+            AppLog.w(TAG, "sentence ${i + 1} playback failed: ${e.javaClass.simpleName}")
+            releasePlayer()
+            failSentence(i, "The audio could not be played")
+            return
         }
         report(Status.PLAYING)
+    }
+
+    /** Stops on this sentence; play tries it again with a new request. */
+    private fun failSentence(i: Int, message: String) {
+        fetches.remove(i)
+        status = Status.PAUSED
+        listener?.onError(message)
     }
 
     private fun report(newStatus: Status) {

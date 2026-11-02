@@ -27,11 +27,15 @@ class CleanupCall(
     private val input: CleanupInput,
     /** The spoken-word safety net compares words, so it is off for translation. */
     private val checkSpokenWords: Boolean = true,
+    onRetry: RetryListener? = null,
 ) {
-    @Volatile private var connection: HttpURLConnection? = null
-    @Volatile private var cancelled = false
+    private val remote = RemoteCall("cleanup", POLICY, onRetry)
 
-    fun execute(): String {
+    fun execute(): String = remote.run(::attempt)
+
+    fun cancel() = remote.cancel()
+
+    private fun attempt(attempt: RemoteCall.Attempt): String {
         val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -40,29 +44,18 @@ class CleanupCall(
             setRequestProperty("Authorization", "Bearer $apiKey")
             setRequestProperty("Content-Type", "application/json")
         }
-        connection = conn
-        if (cancelled) throw IOException("cancelled")
+        attempt.onAbort(conn::disconnect)
         try {
             conn.outputStream.use { it.write(requestJson(prompt, input).toByteArray(Charsets.UTF_8)) }
-            val status = conn.responseCode
-            if (status !in 200..299) {
-                val body = conn.errorStream?.bufferedReader()?.use { it.readText() }
-                throw GatewayException(status, TranscriptionCall.errorMessage(status, body))
-            }
+            conn.requireSuccess("cleanup")
             val cleaned = parseInsertText(conn.inputStream.bufferedReader().use { it.readText() })
             if (checkSpokenWords && !keepsSpokenWords(input.transcript, cleaned)) {
-                throw IOException("cleanup dropped spoken words")
+                throw OutputRejectedException("cleanup dropped spoken words")
             }
             return cleaned
         } finally {
             conn.disconnect()
-            connection = null
         }
-    }
-
-    fun cancel() {
-        cancelled = true
-        connection?.disconnect()
     }
 
     companion object {
@@ -70,6 +63,7 @@ class CleanupCall(
         const val MODEL = "google/gemini-3.5-flash-lite"
         private const val CONNECT_TIMEOUT_MS = 10_000
         private const val READ_TIMEOUT_MS = 20_000
+        private val POLICY = RemotePolicy(attemptTimeoutMs = 20_000, maxAttempts = 2, totalTimeoutMs = 42_000)
         /** Screen text sent to cleanup, nearest first; the field's own text is sent separately. */
         private const val MAX_NEARBY_CHARS = 1_500
 
@@ -139,7 +133,7 @@ class CleanupCall(
                 .getJSONObject("message").getString("content").trim()
             val json = content.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
             val value = JSONObject(json).get("insert_text")
-            if (value !is String) throw IOException("insert_text is not a string")
+            if (value !is String) throw BadReplyException("insert_text is not a string")
             return value.trim()
         }
     }

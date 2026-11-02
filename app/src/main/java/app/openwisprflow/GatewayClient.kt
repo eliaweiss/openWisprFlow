@@ -15,22 +15,44 @@ import java.util.Base64
 data class Transcript(val text: String, val language: String?, val durationSeconds: Double?)
 
 /** A non-2xx reply from AI Gateway. The message never contains the API key. */
-class GatewayException(val status: Int, message: String) : IOException(message)
+class GatewayException(val status: Int, message: String, val retryAfterMs: Long? = null) : IOException(message)
+
+/** A Retry-After header in seconds; the date form is ignored and the normal backoff applies. */
+fun parseRetryAfterMs(header: String?): Long? = header?.trim()?.toLongOrNull()?.times(1_000)
+
+/** Logs the reply's status and throws [GatewayException] unless it is 2xx. */
+internal fun HttpURLConnection.requireSuccess(label: String) {
+    val status = responseCode
+    AppLog.d("openWisprFlow", "$label: HTTP $status")
+    if (status !in 200..299) {
+        val body = errorStream?.bufferedReader()?.use { it.readText() }
+        throw GatewayException(
+            status,
+            TranscriptionCall.errorMessage(status, body),
+            parseRetryAfterMs(getHeaderField("Retry-After")),
+        )
+    }
+}
 
 /**
  * One transcription request to AI Gateway's REST endpoint (HLD section 5, Transcription). The
  * WAV is base64-encoded straight from the file into the request body, so a long take is never
- * held in memory as one string. [cancel] aborts the request from another thread.
+ * held in memory as one string. Retried by [RemoteCall]; [cancel] aborts it from another thread.
  */
 class TranscriptionCall(
     private val apiKey: String,
     private val wav: File,
     private val options: TranscriptionOptions,
+    onRetry: RetryListener? = null,
 ) {
-    @Volatile private var connection: HttpURLConnection? = null
-    @Volatile private var cancelled = false
+    private val remote = RemoteCall("transcribe", POLICY, onRetry)
 
-    fun execute(): Transcript {
+    fun execute(): Transcript = remote.run(::attempt)
+
+    fun cancel() = remote.cancel()
+
+    private fun attempt(attempt: RemoteCall.Attempt): Transcript {
+        AppLog.d("openWisprFlow", "transcribe: uploading ${wav.length()} bytes")
         val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -43,8 +65,7 @@ class TranscriptionCall(
             setRequestProperty("ai-transcription-model-specification-version", "4")
             setRequestProperty("ai-model-id", MODEL)
         }
-        connection = conn
-        if (cancelled) throw IOException("cancelled")
+        attempt.onAbort(conn::disconnect)
         try {
             conn.outputStream.buffered().use { out ->
                 out.write(options.bodyPrefix())
@@ -53,20 +74,11 @@ class TranscriptionCall(
                 }
                 out.write(options.bodySuffix())
             }
-            val status = conn.responseCode
-            if (status !in 200..299) {
-                throw GatewayException(status, errorMessage(status, conn.errorStream?.readText()))
-            }
+            conn.requireSuccess("transcribe")
             return parseTranscript(conn.inputStream.readText())
         } finally {
             conn.disconnect()
-            connection = null
         }
-    }
-
-    fun cancel() {
-        cancelled = true
-        connection?.disconnect()
     }
 
     /** Keeps the request stream open when the base64 encoder is closed to flush its last block. */
@@ -79,7 +91,9 @@ class TranscriptionCall(
         const val ENDPOINT = "https://ai-gateway.vercel.sh/v4/ai/transcription-model"
         const val MODEL = "google/gemini-3.5-transcribe"
         private const val CONNECT_TIMEOUT_MS = 15_000
-        private const val READ_TIMEOUT_MS = 90_000
+        private const val READ_TIMEOUT_MS = 50_000
+        /** With cleanup's limit this stays inside the 3 minutes of CaptureService's foreground hold. */
+        private val POLICY = RemotePolicy(attemptTimeoutMs = 55_000, maxAttempts = 3, totalTimeoutMs = 130_000)
 
         fun parseTranscript(body: String): Transcript {
             val json = JSONObject(body)

@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
-import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -115,12 +114,15 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
         started = true
         val text = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return fail(getString(R.string.speech_nothing_to_read))
         val key = ApiKeyStore.get(this) ?: return fail(getString(R.string.api_key_needed))
+        AppLog.d(TAG, "reader: $entry, ${text.length} chars")
         if (!summarize) {
             read(Sentences.split(text))
             return
         }
         showStatus(getString(R.string.summary_working, "%,d".format(text.length)))
-        val c = SummaryCall(key, text)
+        val c = SummaryCall(key, text, onRetry = RetryListener { next, max, reason ->
+            runOnUiThread { if (summaryCall != null) showStatus(getString(R.string.retrying_notice, reason, next, max)) }
+        })
         summaryCall = c
         thread(name = "openWisprFlow-summary") {
             val begun = System.currentTimeMillis()
@@ -131,12 +133,12 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
                 summaryCall = null
                 result.fold(
                     onSuccess = {
-                        Log.d(TAG, "summary: ${text.length} -> ${it.length} chars in $elapsed ms")
+                        AppLog.d(TAG, "summary: ${text.length} -> ${it.length} chars in $elapsed ms")
                         read(Sentences.split(it))
                     },
                     onFailure = { e ->
-                        Log.w(TAG, "summary failed: ${e.javaClass.simpleName} ${(e as? GatewayException)?.status ?: ""}")
-                        fail(getString(R.string.summary_failed, e.message ?: e.javaClass.simpleName))
+                        AppLog.w(TAG, "summary failed: ${e.brief()}")
+                        showStatus(getString(R.string.summary_failed, e.message ?: e.javaClass.simpleName)) { begin(raw) }
                     },
                 )
             }
@@ -158,6 +160,7 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
     override fun onSentence(index: Int, status: SentencePlayer.Status) {
         val s = split ?: return
         // No status line while reading; a loading sentence shows as a spinner on the play button.
+        showStatus(null)
         val loading = status == SentencePlayer.Status.LOADING
         progress.visibility = if (loading) View.VISIBLE else View.GONE
         val playing = status == SentencePlayer.Status.PLAYING || loading
@@ -187,8 +190,12 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
 
     override fun onError(message: String) {
         progress.visibility = View.GONE
-        showStatus(getString(R.string.speech_failed, message))
+        showStatus(getString(R.string.speech_failed, message)) { if (owns()) SentencePlayer.togglePause() }
         play.setImageResource(R.drawable.ic_play)
+    }
+
+    override fun onRetrying(reason: String, nextAttempt: Int, maxAttempts: Int) {
+        showStatus(getString(R.string.retrying_notice, reason, nextAttempt, maxAttempts))
     }
 
     /** A newer pop-up took over the reading: this one is done. */
@@ -198,10 +205,15 @@ class ReaderActivity : Activity(), SentencePlayer.Listener {
 
     private fun fail(message: String) = showStatus(message)
 
-    /** The status line holds messages only (summarizing, nothing to read, errors); null hides it. */
-    private fun showStatus(message: String?) {
-        status.text = message
+    /**
+     * The status line holds messages only (summarizing, nothing to read, errors); null hides it.
+     * With [retry], tapping the line tries again.
+     */
+    private fun showStatus(message: String?, retry: (() -> Unit)? = null) {
+        status.text = if (message != null && retry != null) getString(R.string.tap_to_retry, message) else message
         status.visibility = if (message == null) View.GONE else View.VISIBLE
+        if (retry != null) status.setOnClickListener { retry() } else status.setOnClickListener(null)
+        status.isClickable = retry != null
     }
 
     override fun onDestroy() {

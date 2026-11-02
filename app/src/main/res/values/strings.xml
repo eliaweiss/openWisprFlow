@@ -18,6 +18,9 @@
     <string name="recording_title">Recording dictation</string>
     <string name="recording_stop">Stop</string>
     <string name="recording_cancel">Cancel</string>
+    <string name="processing_title">Processing dictation</string>
+    <string name="retrying_notice">%1$s. Trying again (%2$d of %3$d)…</string>
+    <string name="tap_to_retry">%1$s\nTap here to try again.</string>
     <string name="mic_permission_needed">openWisprFlow needs microphone access. Open the app and tap Allow microphone.</string>
     <string name="mic_start_failed">The microphone could not start (%1$s).</string>
 

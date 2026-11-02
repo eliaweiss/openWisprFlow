@@ -120,7 +120,7 @@ Manifest surface:
 <service
     android:name=".CaptureService"
     android:exported="false"
-    android:foregroundServiceType="microphone" />
+    android:foregroundServiceType="microphone|shortService" />
 ```
 
 `res/xml/dictation_accessibility.xml`:
@@ -682,7 +682,8 @@ Retained audio lives in app-private storage with a visible expiry. Retry needs t
 - Fields with `EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING` (incognito) still accept dictation, but write no history row and keep no audio. Their audio and field text still go to AI Gateway, and the setup screen says so.
 - The setup screen says plainly what the accessibility service reads, what leaves the phone, and what it types. This is for the user's own understanding, not a store requirement.
 - Retained audio and the encrypted key are excluded from Android backup and device transfer (`dataExtractionRules` and `fullBackupContent`). The key could not be decrypted on another device anyway, since its Keystore key does not move.
-- Logs never contain accessibility event text, field context, transcripts, or the `Authorization` header.
+- Logs never contain accessibility event text, field context, transcripts, or the `Authorization` header. `AppLog` writes the same lines to logcat and to `files/logs/app.log` (two parts of at most 1 MB), since logcat only reaches back about 20 minutes on a busy phone.
+- Every gateway request goes through `RemoteCall`: a hard limit on each attempt and on the whole call, retries with backoff for connection, timeout, 429 and 5xx failures, none for a rejected key or request, and a message written for the user. Transcription and cleanup together stay under 3 minutes, the limit of the short foreground service that `CaptureService` holds from stop until the session ends, so the app keeps running through the requests.
 - Data retention follows the user's own AI Gateway team settings. Teams that have Zero Data Retention can turn it on there; the app adds nothing.
 
 Installation is by sideloading the APK. On Android 13 and later, an app installed from a downloaded file may have its accessibility setting greyed out as a "restricted setting". The fix is App info, then the ⋮ menu, then Allow restricted settings, then enable the service. The setup screen explains this. Installing with `adb install` during development is the simplest path.

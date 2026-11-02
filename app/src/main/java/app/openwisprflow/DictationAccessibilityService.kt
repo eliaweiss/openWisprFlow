@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -91,7 +90,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     }
 
     override fun onServiceConnected() {
-        Log.d(TAG, "service connected")
+        AppLog.d(TAG, "service connected")
         bubble = BubbleController(this, ::onBubbleTap, ::onBubbleLongPress)
         preview = PreviewController(this)
         liveText = LiveTextController(this)
@@ -179,6 +178,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
 
     private fun onBubbleTap() {
         val s = session
+        AppLog.d(TAG, "bubble tap, session ${s?.id}, recording ${s?.recording}")
         when {
             s == null -> startDictation(translate = false)
             s.recording -> CaptureService.stop(this)
@@ -189,6 +189,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     /** On the idle bubble a long press starts a translate take; while recording it cancels. */
     private fun onBubbleLongPress() {
         val s = session
+        AppLog.d(TAG, "bubble long press, session ${s?.id}, recording ${s?.recording}")
         when {
             s == null -> startDictation(translate = true)
             s.recording -> cancelSession()
@@ -217,7 +218,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         )
         session = s
         bubble?.setState(BubbleController.State.RECORDING, translate)
-        Log.d(TAG, "session ${s.id} started${if (translate) " (translate)" else ""}")
+        AppLog.d(TAG, "session ${s.id} started${if (translate) " (translate)" else ""}")
 
         // Live audio is held by the transcriber until the vocabulary is known and it connects.
         val key = ApiKeyStore.get(this)
@@ -255,12 +256,15 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     }
 
     override fun onTakeFinished(sessionId: Long, take: Take) {
-        val s = session ?: return
-        if (s.id != sessionId || !s.recording) return
+        val s = session
+        if (s == null || s.id != sessionId || !s.recording) {
+            CaptureService.release(sessionId)
+            return
+        }
         s.recording = false
         s.take = take
         bubble?.setState(BubbleController.State.PROCESSING, s.translateTo != null)
-        Log.d(TAG, "session ${s.id} take ${take.durationMs} ms, peak ${take.peak}")
+        AppLog.d(TAG, "session ${s.id} take ${take.durationMs} ms, peak ${take.peak}")
         val live = s.live
         if (live == null) {
             transcribe(s, take)
@@ -270,7 +274,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         live.finishAudio()
         main.postDelayed({
             if (session === s && s.awaitingLive) {
-                Log.w(TAG, "session ${s.id} live final timed out; uploading the take")
+                AppLog.w(TAG, "session ${s.id} live final timed out; uploading the take")
                 stopLive(s)
                 transcribe(s, take)
             }
@@ -282,7 +286,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         // The field's own text is the nearest context, then the rest of the screen.
         val nearby = listOfNotNull(s.start.context?.before, s.start.context?.after) + s.nearby
         val vocabulary = Vocabulary.build(Dictionary.load(this), nearby)
-        Log.d(TAG, "session ${s.id} vocabulary ${vocabulary.size} terms")
+        AppLog.d(TAG, "session ${s.id} vocabulary ${vocabulary.size} terms")
         // Cleanup needs the verbatim transcript (fillers and self-corrections intact); without it,
         // smart mode removes fillers in the recognizer (HLD section 3).
         val verbatim = AppSettings.useCleanup(this) || s.translateTo != null
@@ -300,7 +304,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
             if (session !== s || !s.awaitingLive) return@post
             s.awaitingLive = false
             stopLive(s)
-            Log.d(TAG, "session ${s.id} live final, ${transcript.text.length} chars")
+            AppLog.d(TAG, "session ${s.id} live final, ${transcript.text.length} chars")
             val key = ApiKeyStore.get(this@DictationAccessibilityService)
             if (key == null) {
                 finish(s, HistoryStatus.FAILED, detail = "no API key")
@@ -311,7 +315,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
 
         override fun onLiveFailed(error: Throwable) = main.post {
             if (session !== s) return@post
-            Log.w(TAG, "session ${s.id} live failed: ${error.javaClass.simpleName} ${(error as? GatewayException)?.status ?: ""}")
+            AppLog.w(TAG, "session ${s.id} live failed: ${error.brief()}, network ${NetworkStatus.describe()}")
             stopLive(s)
             val take = s.take
             if (s.awaitingLive && take != null) {
@@ -337,7 +341,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
             return
         }
         val cleanup = AppSettings.useCleanup(this)
-        val call = TranscriptionCall(key, take.file, transcriptionOptions(s))
+        val call = TranscriptionCall(key, take.file, transcriptionOptions(s), retryNotice(s))
         s.cancelRequest = call::cancel
         network.execute {
             val started = System.currentTimeMillis()
@@ -348,12 +352,11 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                 s.cancelRequest = null
                 result.fold(
                     onSuccess = { transcript ->
-                        Log.d(TAG, "session ${s.id} transcribed in $elapsed ms, ${transcript.text.length} chars")
+                        AppLog.d(TAG, "session ${s.id} transcribed in $elapsed ms, ${transcript.text.length} chars")
                         onTranscript(s, key, transcript.text, cleanup)
                     },
                     onFailure = { error ->
-                        val status = (error as? GatewayException)?.status
-                        Log.w(TAG, "session ${s.id} transcription failed: ${error.javaClass.simpleName} $status")
+                        AppLog.w(TAG, "session ${s.id} transcription failed after $elapsed ms: ${error.brief()}")
                         finish(s, HistoryStatus.FAILED, detail = error.message ?: error.javaClass.simpleName)
                         Toast.makeText(
                             this,
@@ -362,6 +365,15 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                         ).show()
                     },
                 )
+            }
+        }
+    }
+
+    /** Tells the user a request is being tried again, while this session is still running. */
+    private fun retryNotice(s: Session) = RetryListener { next, max, reason ->
+        main.post {
+            if (session === s) {
+                Toast.makeText(this, getString(R.string.retrying_notice, reason, next, max), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -397,7 +409,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         val translateTo = s.translateTo
         val prompt = if (translateTo != null) CleanupPrompt.translation(translateTo) else AppSettings.cleanupPrompt(this)
         s.promptHash = History.promptHash(prompt)
-        val call = CleanupCall(key, prompt, input, checkSpokenWords = translateTo == null)
+        val call = CleanupCall(key, prompt, input, checkSpokenWords = translateTo == null, onRetry = retryNotice(s))
         s.cancelRequest = call::cancel
         network.execute {
             val started = System.currentTimeMillis()
@@ -408,16 +420,16 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                 s.cancelRequest = null
                 val cleaned = result.getOrNull()?.takeIf { it.isNotBlank() }
                 if (cleaned != null) {
-                    Log.d(TAG, "session ${s.id} cleaned in $elapsed ms, ${transcript.length} -> ${cleaned.length} chars")
+                    AppLog.d(TAG, "session ${s.id} cleaned in $elapsed ms, ${transcript.length} -> ${cleaned.length} chars")
                     onResult(s, cleaned)
                 } else if (translateTo != null) {
                     // The untranslated transcript is not what was asked for: offer it for copy only.
                     val error = result.exceptionOrNull()
-                    Log.w(TAG, "session ${s.id} translation failed after $elapsed ms: ${error?.javaClass?.simpleName}")
+                    AppLog.w(TAG, "session ${s.id} translation failed after $elapsed ms: ${error?.brief()}")
                     showPreview(s, transcript, getString(R.string.translation_failed_reason))
                 } else {
                     val error = result.exceptionOrNull()
-                    Log.w(TAG, "session ${s.id} cleanup failed after $elapsed ms: ${error?.javaClass?.simpleName}")
+                    AppLog.w(TAG, "session ${s.id} cleanup failed after $elapsed ms: ${error?.brief()}")
                     Toast.makeText(this, R.string.cleanup_failed, Toast.LENGTH_SHORT).show()
                     onResult(s, transcript)
                 }
@@ -428,7 +440,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     override fun onCaptureFailed(sessionId: Long, error: Throwable) {
         val s = session ?: return
         if (s.id != sessionId) return
-        Log.d(TAG, "session ${s.id} capture failed: ${error.javaClass.simpleName}")
+        AppLog.d(TAG, "session ${s.id} capture failed: ${error.javaClass.simpleName}")
         endSession(s)
         Toast.makeText(
             this,
@@ -477,7 +489,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         s.insertAt = s.start.context?.absoluteSelectionStart
         s.expectedEnd = s.insertAt?.plus(text.length)
         connection.commitText(text, 1, null)
-        Log.d(TAG, "session ${s.id} committed")
+        AppLog.d(TAG, "session ${s.id} committed")
         main.postDelayed({
             if (session === s && s.awaitingConfirm) showPreview(s, text, "insert not confirmed")
         }, COMMIT_CONFIRM_TIMEOUT_MS)
@@ -489,13 +501,13 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         if (s.awaitingConfirm &&
             InsertionGuard.confirmsCommit(s.insertAt, s.expectedEnd, newSelStart, newSelEnd)
         ) {
-            Log.d(TAG, "session ${s.id} confirmed")
+            AppLog.d(TAG, "session ${s.id} confirmed")
             finish(s, HistoryStatus.INSERTED, finalText = s.insertedText)
         }
     }
 
     private fun showPreview(s: Session, text: String, reason: String) {
-        Log.d(TAG, "session ${s.id} preview: $reason")
+        AppLog.d(TAG, "session ${s.id} preview: $reason")
         finish(s, HistoryStatus.PREVIEW, finalText = text.trim(), detail = reason)
         preview?.show(text.trim(), reason)
     }
@@ -529,13 +541,14 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         if (session !== s) return
         stopLive(s)
         session = null
+        CaptureService.release(s.id)
         bubble?.setState(BubbleController.State.IDLE)
     }
 
     /** Cancel discards the take and invalidates every later result for the session. */
     private fun cancelSession() {
         val s = session ?: return
-        Log.d(TAG, "session ${s.id} cancelled")
+        AppLog.d(TAG, "session ${s.id} cancelled")
         if (s.recording) CaptureService.cancel(this)
         s.cancelRequest?.invoke()
         // A take cancelled while processing stays in history, so it can be retried.
@@ -556,7 +569,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     }
 
     override fun onDestroy() {
-        Log.d(TAG, "service destroyed")
+        AppLog.d(TAG, "service destroyed")
         cancelSession()
         if (CaptureService.listener === this) CaptureService.listener = null
         main.removeCallbacksAndMessages(null)

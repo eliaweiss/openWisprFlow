@@ -91,6 +91,7 @@ class HistoryActivity : Activity() {
                     promptHash = if (cleanup) History.promptHash(prompt) else null,
                 )
             } catch (e: Exception) {
+                AppLog.w("openWisprFlow", "history retry failed: ${e.brief()}")
                 entry.copy(status = HistoryStatus.FAILED, detail = e.message ?: e.javaClass.simpleName)
             }
             History.update(this, updated)

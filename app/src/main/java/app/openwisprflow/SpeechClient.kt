@@ -16,12 +16,16 @@ class SpeechCall(
     private val apiKey: String,
     private val text: String,
     private val voice: String = DEFAULT_VOICE,
+    onRetry: RetryListener? = null,
 ) {
-    @Volatile private var connection: HttpURLConnection? = null
-    @Volatile private var cancelled = false
+    private val remote = RemoteCall("speech", POLICY, onRetry)
 
     /** Returns the audio bytes (a WAV file). */
-    fun execute(): ByteArray {
+    fun execute(): ByteArray = remote.run(::attempt)
+
+    fun cancel() = remote.cancel()
+
+    private fun attempt(attempt: RemoteCall.Attempt): ByteArray {
         val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -33,25 +37,14 @@ class SpeechCall(
             setRequestProperty("ai-speech-model-specification-version", "4")
             setRequestProperty("ai-model-id", MODEL)
         }
-        connection = conn
-        if (cancelled) throw IOException("cancelled")
+        attempt.onAbort(conn::disconnect)
         try {
             conn.outputStream.use { it.write(requestJson(text, voice).toByteArray(Charsets.UTF_8)) }
-            val status = conn.responseCode
-            if (status !in 200..299) {
-                val body = conn.errorStream?.bufferedReader()?.use { it.readText() }
-                throw GatewayException(status, TranscriptionCall.errorMessage(status, body))
-            }
+            conn.requireSuccess("speech")
             return parseAudio(conn.inputStream.bufferedReader().use { it.readText() })
         } finally {
             conn.disconnect()
-            connection = null
         }
-    }
-
-    fun cancel() {
-        cancelled = true
-        connection?.disconnect()
     }
 
     companion object {
@@ -61,7 +54,8 @@ class SpeechCall(
         /** The model's context is 8,192 tokens; longer selections are cut, and the user is told. */
         const val MAX_CHARS = 5_000
         private const val CONNECT_TIMEOUT_MS = 10_000
-        private const val READ_TIMEOUT_MS = 60_000
+        private const val READ_TIMEOUT_MS = 25_000
+        private val POLICY = RemotePolicy(attemptTimeoutMs = 25_000, maxAttempts = 3, totalTimeoutMs = 60_000)
 
         fun requestJson(text: String, voice: String): String = JSONObject()
             .put("text", text)
@@ -73,7 +67,7 @@ class SpeechCall(
 
         fun parseAudio(body: String): ByteArray {
             val audio = JSONObject(body).optString("audio")
-            if (audio.isEmpty()) throw IOException("no audio in the reply")
+            if (audio.isEmpty()) throw BadReplyException("no audio in the reply")
             return Base64.getMimeDecoder().decode(audio)
         }
     }

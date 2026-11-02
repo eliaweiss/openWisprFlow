@@ -12,12 +12,18 @@ import java.net.URL
  * diffusion model: with reasoning effort "none" it answers in about a second. [cancel] aborts the
  * request from another thread.
  */
-class SummaryCall(private val apiKey: String, private val text: String) {
+class SummaryCall(
+    private val apiKey: String,
+    private val text: String,
+    onRetry: RetryListener? = null,
+) {
+    private val remote = RemoteCall("summary", POLICY, onRetry)
 
-    @Volatile private var connection: HttpURLConnection? = null
-    @Volatile private var cancelled = false
+    fun execute(): String = remote.run(::attempt)
 
-    fun execute(): String {
+    fun cancel() = remote.cancel()
+
+    private fun attempt(attempt: RemoteCall.Attempt): String {
         val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -26,25 +32,14 @@ class SummaryCall(private val apiKey: String, private val text: String) {
             setRequestProperty("Authorization", "Bearer $apiKey")
             setRequestProperty("Content-Type", "application/json")
         }
-        connection = conn
-        if (cancelled) throw IOException("cancelled")
+        attempt.onAbort(conn::disconnect)
         try {
             conn.outputStream.use { it.write(requestJson(text).toByteArray(Charsets.UTF_8)) }
-            val status = conn.responseCode
-            if (status !in 200..299) {
-                val body = conn.errorStream?.bufferedReader()?.use { it.readText() }
-                throw GatewayException(status, TranscriptionCall.errorMessage(status, body))
-            }
+            conn.requireSuccess("summary")
             return parseSummary(conn.inputStream.bufferedReader().use { it.readText() })
         } finally {
             conn.disconnect()
-            connection = null
         }
-    }
-
-    fun cancel() {
-        cancelled = true
-        connection?.disconnect()
     }
 
     companion object {
@@ -53,7 +48,8 @@ class SummaryCall(private val apiKey: String, private val text: String) {
         /** More than this is never sent (cost, and a summary of a book is not a summary). */
         const val MAX_INPUT_CHARS = 100_000
         private const val CONNECT_TIMEOUT_MS = 10_000
-        private const val READ_TIMEOUT_MS = 120_000
+        private const val READ_TIMEOUT_MS = 45_000
+        private val POLICY = RemotePolicy(attemptTimeoutMs = 45_000, maxAttempts = 3, totalTimeoutMs = 100_000)
 
         /** Spoken summaries: the listener hears this, so no markdown, no lists, no throat-clearing. */
         val SYSTEM_PROMPT = """
@@ -95,7 +91,7 @@ class SummaryCall(private val apiKey: String, private val text: String) {
             val content = choice.getJSONObject("message").optString("content").trim()
             val summary = stripIds(content).trim()
             if (summary.isEmpty()) {
-                throw IOException("the model returned no summary (finish_reason=${choice.optString("finish_reason")})")
+                throw BadReplyException("the model returned no summary (finish_reason=${choice.optString("finish_reason")})")
             }
             return summary
         }
