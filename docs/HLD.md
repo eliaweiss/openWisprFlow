@@ -554,7 +554,16 @@ Preserve the speaker's meaning and language.
 Preserve names, quantities, dates, URLs, and negations.
 Remove fillers and clearly abandoned false starts.
 Resolve explicit self-corrections using the speaker's final choice.
-Add punctuation and paragraph breaks where appropriate.
+Add punctuation, and lay the text out so a person can read it easily.
+Never return longer text as one solid block:
+- One or two short sentences stay on one line.
+- Split anything longer into short paragraphs of one to three sentences,
+  separated by a blank line (two newline characters). Start a new paragraph
+  whenever the speaker moves to a new point.
+- Split long run-on speech into separate sentences, keeping the speaker's words.
+- Put each item of a spoken list or sequence of steps on its own line, starting
+  with "- ", or with "1. ", "2. " for steps.
+- Put a greeting and a sign-off on their own lines.
 Match casing to the text before the cursor: continue a sentence in
 lower case, start a new one with a capital. Keep proper nouns.
 

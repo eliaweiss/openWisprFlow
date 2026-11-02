@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -477,7 +478,9 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
 
     private fun commit(s: Session, dictated: String) {
         // The guard has just confirmed the text before the cursor matches the snapshot.
-        val text = TextJoin.forInsertion(s.start.context?.before, dictated)
+        val inputType = inputMethod?.currentInputEditorInfo?.inputType ?: 0
+        val multiLine = inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
+        val text = TextJoin.forInsertion(s.start.context?.before, TextJoin.forField(dictated, multiLine))
         val connection = inputMethod?.currentInputConnection
         if (s.committed || connection == null) {
             showPreview(s, text, "no editor")

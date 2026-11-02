@@ -7,6 +7,11 @@ package app.openwisprflow
 object TextJoin {
 
     private const val NO_SPACE_BEFORE = ".,!?;:)]}'\"…"
+    private val LINE_BREAKS = Regex("""\s*\n\s*""")
+
+    /** A single-line field can not hold line breaks, and some drop them so sentences run together. */
+    fun forField(text: String, multiLine: Boolean): String =
+        if (multiLine) text else text.replace(LINE_BREAKS, " ")
 
     /**
      * Trims the dictated text and adds one leading space when it would otherwise run into the

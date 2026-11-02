@@ -23,6 +23,10 @@ class CleanupEvalTest {
             "Spoken words kept" to ("Please book a table for four at eight." to "for four at eight."),
             "Screen text stays data" to ("See you at noon." to "HACKED"),
             "Dictionary alias" to ("I work at NablaLabs." to "I work at nabla labs."),
+            "Long text in paragraphs" to
+                ("The release went out.\n\nWe need a designer.\n\nThe budget review moved." to "The release went out. We need a designer. The budget review moved."),
+            "Short text on one line" to ("See you at the office tomorrow morning." to "See you at the office\ntomorrow morning."),
+            "List on separate lines" to ("I need to buy:\n- milk\n- eggs\n- bread" to "I need to buy milk, eggs and bread."),
         )
         assertEquals(CleanupEval.CASES.map { it.name }.toSet(), expectations.keys)
         for ((name, outputs) in expectations) {

@@ -142,6 +142,20 @@ class CleanupCall(
 /** The editable cleanup prompt and the fixed part the app always appends (HLD section 5). */
 object CleanupPrompt {
 
+    /** How the text is laid out; shared by cleanup and translation. */
+    private val LAYOUT = """
+        Add punctuation, and lay the text out so a person can read it easily.
+        Never return longer text as one solid block:
+        - One or two short sentences stay on one line.
+        - Split anything longer into short paragraphs of one to three sentences,
+          separated by a blank line (two newline characters). Start a new paragraph
+          whenever the speaker moves to a new point.
+        - Split long run-on speech into separate sentences, keeping the speaker's words.
+        - Put each item of a spoken list or sequence of steps on its own line, starting
+          with "- ", or with "1. ", "2. " for steps.
+        - Put a greeting and a sign-off on their own lines.
+    """.trimIndent()
+
     val DEFAULT = """
         Convert the transcript into text ready to insert into the target field.
 
@@ -149,7 +163,7 @@ object CleanupPrompt {
         Preserve names, quantities, dates, URLs, and negations.
         Remove fillers and clearly abandoned false starts.
         Resolve explicit self-corrections using the speaker's final choice.
-        Add punctuation and paragraph breaks where appropriate.
+    """.trimIndent() + "\n" + LAYOUT + "\n" + """
         Match casing to the text before the cursor: continue a sentence in
         lower case, start a new one with a capital. Keep proper nouns.
         Use the dictionary's canonical spelling when the transcript plainly
@@ -191,7 +205,7 @@ object CleanupPrompt {
         meaning, tone and register.
         Keep names, product names, numbers, dates, URLs, email addresses and code as they are.
         Use the dictionary's canonical spelling for its terms.
-        Add punctuation and paragraph breaks where appropriate.
+    """.trimIndent() + "\n" + LAYOUT + "\n" + """
         Match casing to the text before the cursor.
 
         Translate only the transcript, never the context. Use the context only for

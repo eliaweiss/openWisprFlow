@@ -56,6 +56,27 @@ object CleanupEval {
         ) {
             it.contains("NablaLabs")
         },
+        Case(
+            "Long text in paragraphs",
+            CleanupInput(
+                "so the release went out this morning and most of it looks fine but the login page is slower than " +
+                    "before and two customers already complained about it so I want to roll that part back today " +
+                    "now about next week we still need to hire a designer and I think we should post the job on " +
+                    "monday and start interviews the week after and finally the budget review moved to thursday " +
+                    "at three so please update your calendars and send me your numbers before then",
+            ),
+        ) {
+            it.contains("\n\n") && it.has("budget review") && it.has("designer")
+        },
+        Case("Short text on one line", CleanupInput("see you at the office tomorrow morning")) {
+            !it.contains('\n')
+        },
+        Case(
+            "List on separate lines",
+            CleanupInput("I need to buy three things milk then eggs and finally some bread"),
+        ) {
+            it.lines().count { line -> line.trimStart().startsWith("- ") || line.trimStart().startsWith("1.") || line.trimStart().startsWith("2.") } >= 2
+        },
     )
 
     /** Runs every case in order, calling [onResult] after each. Blocking: call off the main thread. */

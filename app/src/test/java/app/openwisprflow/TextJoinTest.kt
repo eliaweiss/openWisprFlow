@@ -6,6 +6,13 @@ import org.junit.Test
 class TextJoinTest {
 
     @Test
+    fun lineBreaksStayOnlyInMultiLineFields() {
+        val text = "First point.\n\nSecond point.\n- one\n- two"
+        assertEquals(text, TextJoin.forField(text, multiLine = true))
+        assertEquals("First point. Second point. - one - two", TextJoin.forField(text, multiLine = false))
+    }
+
+    @Test
     fun addsOneSpaceAfterAWord() {
         assertEquals(" call tomorrow", TextJoin.forInsertion("I will", "call tomorrow"))
     }
