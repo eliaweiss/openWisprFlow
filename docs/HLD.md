@@ -417,7 +417,7 @@ Auto-insert happens only when every check passes. Otherwise the result goes to t
 5. If field context was read at start, a fresh read returns exactly the same `before`, `selected`, and `after`. If it could not be read at start, checks 3 and 4 alone decide; that keeps dictation working in editors that do not return surrounding text.
 6. Sensitive-field exclusions still pass.
 7. On the main thread, mark the session committed, then call `commitText` once.
-8. Confirm from the next selection update. If none shows the inserted text within about a second, the outcome is unknown: open the preview and do not insert again.
+8. Confirm from the next selection update. If none shows the inserted text within about a second, the outcome is unknown: do not insert again and do not interrupt with the preview, since the text has usually gone in. History keeps it for copy, marked as not confirmed.
 
 These checks are not a transaction across apps. They are deliberately strict: typing during a take, switching conversation, or rotating the screen (which starts a new input session) all end on the copy preview, which is the intended result.
 

@@ -494,7 +494,12 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         connection.commitText(text, 1, null)
         AppLog.d(TAG, "session ${s.id} committed")
         main.postDelayed({
-            if (session === s && s.awaitingConfirm) showPreview(s, text, "insert not confirmed")
+            if (session === s && s.awaitingConfirm) {
+                // Usually the text did go in and the editor reported it late or differently, so
+                // no pop-up; if it did not, the text is in History to copy.
+                AppLog.d(TAG, "session ${s.id} insert not confirmed")
+                finish(s, HistoryStatus.PREVIEW, finalText = text.trim(), detail = "insert not confirmed")
+            }
         }, COMMIT_CONFIRM_TIMEOUT_MS)
     }
 
