@@ -1,10 +1,9 @@
 package app.openwisprflow
 
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
  * A spoken summary from Inception Mercury 3 (inception/mercury-3) through AI Gateway's
@@ -24,22 +23,12 @@ class SummaryCall(
     fun cancel() = remote.cancel()
 
     private fun attempt(attempt: RemoteCall.Attempt): String {
-        val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            doOutput = true
-            connectTimeout = CONNECT_TIMEOUT_MS
-            readTimeout = READ_TIMEOUT_MS
-            setRequestProperty("Authorization", "Bearer $apiKey")
-            setRequestProperty("Content-Type", "application/json")
-        }
-        attempt.onAbort(conn::disconnect)
-        try {
-            conn.outputStream.use { it.write(requestJson(text).toByteArray(Charsets.UTF_8)) }
-            conn.requireSuccess("summary")
-            return parseSummary(conn.inputStream.bufferedReader().use { it.readText() })
-        } finally {
-            conn.disconnect()
-        }
+        val request = Request.Builder()
+            .url(ENDPOINT)
+            .header("Authorization", "Bearer $apiKey")
+            .post(requestJson(text).toRequestBody(GatewayHttp.JSON))
+            .build()
+        return parseSummary(GatewayHttp.fetch(attempt, "summary", POLICY, request))
     }
 
     companion object {
@@ -47,9 +36,17 @@ class SummaryCall(
         const val MODEL = "inception/mercury-3"
         /** More than this is never sent (cost, and a summary of a book is not a summary). */
         const val MAX_INPUT_CHARS = 100_000
-        private const val CONNECT_TIMEOUT_MS = 10_000
-        private const val READ_TIMEOUT_MS = 45_000
-        private val POLICY = RemotePolicy(attemptTimeoutMs = 45_000, maxAttempts = 3, totalTimeoutMs = 100_000)
+        /**
+         * A healthy reply starts 1-2.5 s after the request, even for 25,000 characters. One that has
+         * not started within 5 s (or not been sent within 5 s) is a failed attempt and is retried.
+         */
+        private val POLICY = RemotePolicy(
+            attemptTimeoutMs = 20_000,
+            maxAttempts = 3,
+            totalTimeoutMs = 45_000,
+            sendTimeoutMs = 5_000,
+            firstByteTimeoutMs = 5_000,
+        )
 
         /** Spoken summaries: the listener hears this, so no markdown, no lists, no throat-clearing. */
         val SYSTEM_PROMPT = """

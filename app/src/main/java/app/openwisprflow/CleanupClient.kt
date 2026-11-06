@@ -1,10 +1,9 @@
 package app.openwisprflow
 
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 
 /** What the cleanup model sees: the verbatim transcript and the field around the cursor, as data. */
 data class CleanupInput(
@@ -36,34 +35,29 @@ class CleanupCall(
     fun cancel() = remote.cancel()
 
     private fun attempt(attempt: RemoteCall.Attempt): String {
-        val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            doOutput = true
-            connectTimeout = CONNECT_TIMEOUT_MS
-            readTimeout = READ_TIMEOUT_MS
-            setRequestProperty("Authorization", "Bearer $apiKey")
-            setRequestProperty("Content-Type", "application/json")
+        val request = Request.Builder()
+            .url(ENDPOINT)
+            .header("Authorization", "Bearer $apiKey")
+            .post(requestJson(prompt, input).toRequestBody(GatewayHttp.JSON))
+            .build()
+        val cleaned = parseInsertText(GatewayHttp.fetch(attempt, "cleanup", POLICY, request))
+        if (checkSpokenWords && !keepsSpokenWords(input.transcript, cleaned)) {
+            throw OutputRejectedException("cleanup dropped spoken words")
         }
-        attempt.onAbort(conn::disconnect)
-        try {
-            conn.outputStream.use { it.write(requestJson(prompt, input).toByteArray(Charsets.UTF_8)) }
-            conn.requireSuccess("cleanup")
-            val cleaned = parseInsertText(conn.inputStream.bufferedReader().use { it.readText() })
-            if (checkSpokenWords && !keepsSpokenWords(input.transcript, cleaned)) {
-                throw OutputRejectedException("cleanup dropped spoken words")
-            }
-            return cleaned
-        } finally {
-            conn.disconnect()
-        }
+        return cleaned
     }
 
     companion object {
         const val ENDPOINT = "https://ai-gateway.vercel.sh/v1/chat/completions"
         const val MODEL = "google/gemini-3.5-flash-lite"
-        private const val CONNECT_TIMEOUT_MS = 10_000
-        private const val READ_TIMEOUT_MS = 20_000
-        private val POLICY = RemotePolicy(attemptTimeoutMs = 20_000, maxAttempts = 2, totalTimeoutMs = 42_000)
+        /** A healthy reply starts in 1-2 s; 5 s of silence after sending is a failed attempt. */
+        private val POLICY = RemotePolicy(
+            attemptTimeoutMs = 15_000,
+            maxAttempts = 2,
+            totalTimeoutMs = 32_000,
+            sendTimeoutMs = 5_000,
+            firstByteTimeoutMs = 5_000,
+        )
         /** Screen text sent to cleanup, nearest first; the field's own text is sent separately. */
         private const val MAX_NEARBY_CHARS = 1_500
 

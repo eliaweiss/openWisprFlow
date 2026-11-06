@@ -44,15 +44,26 @@ class BadReplyException(message: String) : IOException(message)
 /** The reply was valid but its content was refused by a local check; not worth another attempt. */
 class OutputRejectedException(message: String) : IOException(message)
 
-/** One attempt ran past its time limit. */
-class AttemptTimeoutException(limitMs: Long) : IOException("no result within $limitMs ms")
+/** One attempt ran past one of its time limits; the message says which. */
+class AttemptTimeoutException(message: String) : IOException(message)
 
-/** Time limits and attempts for one kind of call. [totalTimeoutMs] includes the waits between attempts. */
+/**
+ * Time limits and attempts for one kind of call. [totalTimeoutMs] includes the waits between
+ * attempts.
+ *
+ * An attempt that goes quiet is a failed attempt, not a slow one, so besides [attemptTimeoutMs]
+ * each attempt has two stage limits (null: none):
+ * - [sendTimeoutMs]: from the start of the attempt (DNS, connect, TLS, upload) until the request
+ *   is fully sent ([RemoteCall.Attempt.requestSent]);
+ * - [firstByteTimeoutMs]: from then until the reply starts ([RemoteCall.Attempt.replyStarted]).
+ */
 class RemotePolicy(
     val attemptTimeoutMs: Long,
     val maxAttempts: Int,
     val totalTimeoutMs: Long,
     val backoffBaseMs: Long = 1_000,
+    val sendTimeoutMs: Long? = null,
+    val firstByteTimeoutMs: Long? = null,
 )
 
 /** Told before each new attempt, on a background thread. [reason] is written for the user. */
@@ -73,10 +84,36 @@ class RemoteCall(
     private val policy: RemotePolicy,
     private val onRetry: RetryListener? = null,
 ) {
-    /** One try. A request registers how to abort itself before it touches the network. */
+    /**
+     * One try. A request registers how to abort itself before it touches the network, then
+     * reports [requestSent] and [replyStarted] so the stage limits of [RemotePolicy] apply.
+     */
     class Attempt {
         @Volatile private var abort: (() -> Unit)? = null
         @Volatile private var aborted = false
+        internal val beganAt = System.nanoTime()
+        @Volatile internal var sentAt = 0L
+            private set
+        @Volatile internal var repliedAt = 0L
+            private set
+        @Volatile internal var newConnection = false
+            private set
+
+        /** The request opened a new connection rather than reusing a pooled one. */
+        fun newConnection() {
+            newConnection = true
+        }
+
+        /** The whole request has been written to the connection. */
+        fun requestSent() {
+            if (sentAt == 0L) sentAt = System.nanoTime()
+        }
+
+        /** The first byte of the reply (its status line) has arrived. */
+        fun replyStarted() {
+            requestSent()
+            if (repliedAt == 0L) repliedAt = System.nanoTime()
+        }
 
         fun onAbort(action: () -> Unit) {
             abort = action
@@ -106,7 +143,7 @@ class RemoteCall(
             val attemptBegan = System.nanoTime()
             try {
                 val value = runAttempt(block, limit)
-                AppLog.d(TAG, "$label: ok on attempt $attempt/${policy.maxAttempts} in ${elapsedMs(attemptBegan)} ms, total ${elapsedMs(began)} ms")
+                AppLog.d(TAG, "$label: ok on attempt $attempt/${policy.maxAttempts} in ${elapsedMs(attemptBegan)} ms, total ${elapsedMs(began)} ms${current?.timings().orEmpty()}")
                 return value
             } catch (e: Exception) {
                 val kind = if (cancelled) RemoteFailureKind.CANCELLED else classify(e)
@@ -117,9 +154,13 @@ class RemoteCall(
                 AppLog.w(
                     TAG,
                     "$label: attempt $attempt/${policy.maxAttempts} failed after ${elapsedMs(attemptBegan)} ms: " +
-                        "$kind ${e.javaClass.simpleName} ${(e as? GatewayException)?.message.orEmpty().take(MAX_LOGGED_DETAIL)}, " +
+                        "$kind ${e.javaClass.simpleName} ${loggedDetail(e)}${current?.timings().orEmpty()}, " +
                         "network ${NetworkStatus.describe()}",
                 )
+                // A connection that went quiet may have pooled siblings in the same state.
+                if (kind == RemoteFailureKind.TIMEOUT || kind == RemoteFailureKind.CONNECTION) {
+                    runCatching { GatewayHttp.dropIdleConnections() }
+                }
                 val wait = retryDelayMs(policy, attempt, (e as? GatewayException)?.retryAfterMs)
                 val again = kind.retryable && attempt < policy.maxAttempts &&
                     elapsedMs(began) + wait < policy.totalTimeoutMs
@@ -149,17 +190,54 @@ class RemoteCall(
         future = task
         if (cancelled) task.cancel(true)
         try {
-            return task.get(limitMs, TimeUnit.MILLISECONDS)
-        } catch (e: TimeoutException) {
-            attempt.abortNow()
-            task.cancel(true)
-            throw AttemptTimeoutException(limitMs)
+            // The deadline moves as the attempt reports its stages, so it is checked in short steps.
+            while (true) {
+                val (deadline, reason) = deadline(attempt, limitMs)
+                val left = deadline - System.nanoTime()
+                if (left <= 0) {
+                    attempt.abortNow()
+                    task.cancel(true)
+                    throw AttemptTimeoutException(reason)
+                }
+                try {
+                    return task.get(minOf(left, STEP_NS), TimeUnit.NANOSECONDS)
+                } catch (e: TimeoutException) {
+                    // Not done yet; check the deadline again.
+                }
+            }
         } catch (e: ExecutionException) {
             throw e.cause ?: e
         } catch (e: InterruptedException) {
             attempt.abortNow()
             task.cancel(true)
             throw e
+        }
+    }
+
+    /** The current stage's deadline (System.nanoTime) and what it means when it passes. */
+    private fun deadline(a: Attempt, limitMs: Long): Pair<Long, String> {
+        val end = a.beganAt + limitMs * 1_000_000
+        val whole = end to "no complete reply within $limitMs ms"
+        val firstByte = policy.firstByteTimeoutMs
+        val send = policy.sendTimeoutMs
+        return when {
+            a.repliedAt != 0L -> whole
+            a.sentAt != 0L -> if (firstByte == null) whole else
+                minOf(end, a.sentAt + firstByte * 1_000_000) to "no reply within $firstByte ms of sending the request"
+            send != null -> minOf(end, a.beganAt + send * 1_000_000) to "request not sent within $send ms"
+            else -> whole
+        }
+    }
+
+    private fun Attempt.timings(): String {
+        val sent = sentAt.takeIf { it != 0L }?.let { (it - beganAt) / 1_000_000 }
+        val replied = repliedAt.takeIf { it != 0L }?.let { (it - sentAt) / 1_000_000 }
+        val connection = if (newConnection) "new connection" else "reused connection"
+        return when {
+            // Before sending, no new connection may also mean it is still looking up the host.
+            sent == null -> if (newConnection) " ($connection, not sent)" else " (not sent)"
+            replied == null -> " ($connection, sent at $sent ms, no reply)"
+            else -> " ($connection, sent at $sent ms, reply began $replied ms later)"
         }
     }
 
@@ -173,6 +251,13 @@ class RemoteCall(
         private const val MAX_LOGGED_DETAIL = 200
         private const val MAX_BACKOFF_MS = 8_000L
         private const val MAX_RETRY_AFTER_MS = 10_000L
+        private const val STEP_NS = 100_000_000L
+
+        /** Gateway messages and our own timeout reasons; other exception messages may hold anything. */
+        private fun loggedDetail(e: Exception) = when (e) {
+            is GatewayException, is AttemptTimeoutException -> e.message.orEmpty().take(MAX_LOGGED_DETAIL)
+            else -> ""
+        }
 
         private val pool = Executors.newCachedThreadPool { task ->
             Thread(task, "openWisprFlow-remote").apply { isDaemon = true }

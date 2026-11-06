@@ -99,6 +99,71 @@ class RemoteCallTest {
         assertEquals(2, aborted.get())
     }
 
+    private val staged = RemotePolicy(
+        attemptTimeoutMs = 5_000, maxAttempts = 2, totalTimeoutMs = 20_000, backoffBaseMs = 1,
+        sendTimeoutMs = 150, firstByteTimeoutMs = 150,
+    )
+
+    @Test
+    fun aReplyThatNeverStartsFailsAtTheFirstByteLimit() {
+        val runs = AtomicInteger()
+        val began = System.currentTimeMillis()
+        val e = failureOf(RemoteCall("t", staged)) { attempt ->
+            runs.incrementAndGet()
+            attempt.requestSent()
+            Thread.sleep(10_000)
+            "late"
+        }
+        assertEquals(RemoteFailureKind.TIMEOUT, e.kind)
+        assertEquals(2, runs.get())
+        // Two attempts of 150 ms each, not two of the 5 s attempt limit.
+        assertTrue(System.currentTimeMillis() - began < 1_500)
+    }
+
+    @Test
+    fun aRequestThatIsNeverSentFailsAtTheSendLimit() {
+        val began = System.currentTimeMillis()
+        val e = failureOf(RemoteCall("t", staged)) { Thread.sleep(10_000); "late" }
+        assertEquals(RemoteFailureKind.TIMEOUT, e.kind)
+        assertTrue(System.currentTimeMillis() - began < 1_500)
+    }
+
+    @Test
+    fun aStartedReplyMayTakeLongerThanTheFirstByteLimit() {
+        val result = RemoteCall("t", staged).run { attempt ->
+            Thread.sleep(50)
+            attempt.requestSent()
+            Thread.sleep(50)
+            attempt.replyStarted()
+            Thread.sleep(400) // the body takes longer than either stage limit
+            "ok"
+        }
+        assertEquals("ok", result)
+    }
+
+    @Test
+    fun theFirstByteClockStartsWhenTheRequestIsSent() {
+        // A slow upload (under the send limit) does not use up the time for the reply.
+        val result = RemoteCall("t", staged).run { attempt ->
+            Thread.sleep(120)
+            attempt.requestSent()
+            Thread.sleep(120)
+            attempt.replyStarted()
+            "ok"
+        }
+        assertEquals("ok", result)
+    }
+
+    @Test
+    fun theTranscriptionSendLimitGrowsWithTheTake() {
+        val short = TranscriptionCall.policyFor(300_000)
+        val long = TranscriptionCall.policyFor(6_000_000)
+        assertEquals(10_000L, short.firstByteTimeoutMs)
+        assertTrue(short.sendTimeoutMs!! in 5_000L..10_000L)
+        assertTrue(long.sendTimeoutMs!! > 60_000L)
+        assertTrue(long.attemptTimeoutMs > long.sendTimeoutMs!! + long.firstByteTimeoutMs!!)
+    }
+
     @Test
     fun theTotalLimitStopsFurtherAttempts() {
         val runs = AtomicInteger()

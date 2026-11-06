@@ -33,6 +33,21 @@ class GatewayClientTest {
     }
 
     @Test
+    fun audioBodyStreamsTheFileAndKnowsItsLength() {
+        val options = TranscriptionOptions(TranscriptionOptions.VERBATIM, listOf("Amina"))
+        for (size in listOf(0, 1, 2, 3, 4, 100_001)) {
+            val audio = ByteArray(size) { (it * 7).toByte() }
+            val wav = java.io.File.createTempFile("take", ".wav").apply { deleteOnExit(); writeBytes(audio) }
+            val body = TranscriptionCall.AudioBody(wav, options)
+            val sent = okio.Buffer().also { body.writeTo(it) }
+            assertEquals("size $size", body.contentLength(), sent.size)
+            // Sent twice (a retry by OkHttp), the body is the same.
+            assertEquals(sent.snapshot(), okio.Buffer().also { body.writeTo(it) }.snapshot())
+            assertEquals(Base64.getEncoder().encodeToString(audio), JSONObject(sent.readUtf8()).getString("audio"))
+        }
+    }
+
+    @Test
     fun emptyListsAreLeftOut() {
         val google = JSONObject(TranscriptionOptions(TranscriptionOptions.VERBATIM).providerOptionsJson())
             .getJSONObject("google")

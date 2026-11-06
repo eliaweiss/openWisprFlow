@@ -1,9 +1,8 @@
 package app.openwisprflow
 
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.Base64
 
 /**
@@ -26,25 +25,15 @@ class SpeechCall(
     fun cancel() = remote.cancel()
 
     private fun attempt(attempt: RemoteCall.Attempt): ByteArray {
-        val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            doOutput = true
-            connectTimeout = CONNECT_TIMEOUT_MS
-            readTimeout = READ_TIMEOUT_MS
-            setRequestProperty("Authorization", "Bearer $apiKey")
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("ai-gateway-protocol-version", "0.0.1")
-            setRequestProperty("ai-speech-model-specification-version", "4")
-            setRequestProperty("ai-model-id", MODEL)
-        }
-        attempt.onAbort(conn::disconnect)
-        try {
-            conn.outputStream.use { it.write(requestJson(text, voice).toByteArray(Charsets.UTF_8)) }
-            conn.requireSuccess("speech")
-            return parseAudio(conn.inputStream.bufferedReader().use { it.readText() })
-        } finally {
-            conn.disconnect()
-        }
+        val request = Request.Builder()
+            .url(ENDPOINT)
+            .header("Authorization", "Bearer $apiKey")
+            .header("ai-gateway-protocol-version", "0.0.1")
+            .header("ai-speech-model-specification-version", "4")
+            .header("ai-model-id", MODEL)
+            .post(requestJson(text, voice).toRequestBody(GatewayHttp.JSON))
+            .build()
+        return parseAudio(GatewayHttp.fetch(attempt, "speech", POLICY, request))
     }
 
     companion object {
@@ -53,9 +42,17 @@ class SpeechCall(
         const val DEFAULT_VOICE = "Kore"
         /** The model's context is 8,192 tokens; longer selections are cut, and the user is told. */
         const val MAX_CHARS = 5_000
-        private const val CONNECT_TIMEOUT_MS = 10_000
-        private const val READ_TIMEOUT_MS = 25_000
-        private val POLICY = RemotePolicy(attemptTimeoutMs = 25_000, maxAttempts = 3, totalTimeoutMs = 60_000)
+        /**
+         * The audio arrives whole, so the reply starts only once it is generated: 2-5 s for one
+         * sentence. A reply that has not started 10 s after the request is stuck.
+         */
+        private val POLICY = RemotePolicy(
+            attemptTimeoutMs = 25_000,
+            maxAttempts = 3,
+            totalTimeoutMs = 60_000,
+            sendTimeoutMs = 5_000,
+            firstByteTimeoutMs = 10_000,
+        )
 
         fun requestJson(text: String, voice: String): String = JSONObject()
             .put("text", text)

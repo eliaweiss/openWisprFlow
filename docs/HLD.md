@@ -51,7 +51,9 @@ Android app
   BubbleController              floating control, gestures, waveform, status
   CaptureService                microphone foreground service
   SessionCoordinator            recording state, cancellation, target checks
-  GatewayClient                 transcription and cleanup calls, timeouts, cancellation
+  GatewayClient                 transcription and cleanup calls (also summary and speech)
+  RemoteCall                    time limits per stage, retries, cancellation, user messages
+  GatewayHttp                   the one OkHttp client: short-lived connection pool, request stages
   KeyStore                      API key, encrypted with an Android Keystore key
   Local database                dictionary, snippets, history, retry state
 
@@ -449,7 +451,7 @@ The user pastes their AI Gateway API key in Settings. Each user brings their own
 
 AI Gateway keys do not expire until revoked. Anyone who has the unlocked phone and the app can spend the key, which is acceptable for a personal install. [Authentication](https://vercel.com/docs/ai-gateway/authentication-and-byok)
 
-The app enforces its own limits: maximum recording length (default 5 minutes), one request in flight per session, and HTTP timeouts. Cancel aborts the HTTP call, and the session id makes sure a late response is ignored.
+The app enforces its own limits: maximum recording length (default 5 minutes), one request in flight per session, and time limits on every stage of a request (section 7). Cancel aborts the HTTP call, and the session id makes sure a late response is ignored.
 
 ### Transcription
 
@@ -692,7 +694,7 @@ Retained audio lives in app-private storage with a visible expiry. Retry needs t
 - The setup screen says plainly what the accessibility service reads, what leaves the phone, and what it types. This is for the user's own understanding, not a store requirement.
 - Retained audio and the encrypted key are excluded from Android backup and device transfer (`dataExtractionRules` and `fullBackupContent`). The key could not be decrypted on another device anyway, since its Keystore key does not move.
 - Logs never contain accessibility event text, field context, transcripts, or the `Authorization` header. `AppLog` writes the same lines to logcat and to `files/logs/app.log` (two parts of at most 1 MB), since logcat only reaches back about 20 minutes on a busy phone.
-- Every gateway request goes through `RemoteCall`: a hard limit on each attempt and on the whole call, retries with backoff for connection, timeout, 429 and 5xx failures, none for a rejected key or request, and a message written for the user. Transcription and cleanup together stay under 3 minutes, the limit of the short foreground service that `CaptureService` holds from stop until the session ends, so the app keeps running through the requests.
+- Every gateway request goes through `RemoteCall`: a hard limit on each attempt and on the whole call, retries with backoff for connection, timeout, 429 and 5xx failures, none for a rejected key or request, and a message written for the user. A request that goes quiet fails fast instead of waiting: it must be sent within 5 s (plus upload time for audio), and its reply must start within 5 s of sending (10 s for transcription and speech, whose replies arrive whole once the model is done). Requests share one OkHttp client (`GatewayHttp`) whose pool closes connections idle for 30 s, and every idle connection is closed after a timed-out attempt: on cellular, kept-alive connections idle for about a minute go dead silently, and reusing one made every attempt hang. Transcription and cleanup together stay under 3 minutes, the limit of the short foreground service that `CaptureService` holds from stop until the session ends, so the app keeps running through the requests.
 - Data retention follows the user's own AI Gateway team settings. Teams that have Zero Data Retention can turn it on there; the app adds nothing.
 
 Installation is by sideloading the APK. On Android 13 and later, an app installed from a downloaded file may have its accessibility setting greyed out as a "restricted setting". The fix is App info, then the ⋮ menu, then Allow restricted settings, then enable the service. The setup screen explains this. Installing with `adb install` during development is the simplest path.
