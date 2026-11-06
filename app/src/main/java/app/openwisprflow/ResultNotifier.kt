@@ -15,7 +15,7 @@ import android.content.Intent
  * whether or not it went into the field: some editors take commitText without saying so, and some
  * drop it, so the text is always one tap away. Tapping the notification copies the text (the
  * Copy button does the same once expanded); History opens the full list. Only the latest result
- * is kept; older ones are in History. Silent, and its text is hidden on the lock screen. Incognito fields get no
+ * is kept, for [SHOW_MS] after it appears; older ones are in History. Silent, and its text is hidden on the lock screen. Incognito fields get no
  * notification, as they get no history (HLD 7).
  */
 object ResultNotifier {
@@ -24,6 +24,8 @@ object ResultNotifier {
     /** CaptureService uses 1. */
     private const val NOTIFICATION_ID = 2
     internal const val EXTRA_TEXT = "text"
+    /** Long enough to paste the result by hand; after that it is only in History. */
+    private const val SHOW_MS = 30_000L
 
     fun show(context: Context, text: String, title: String, status: String) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -59,6 +61,7 @@ object ResultNotifier {
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setPublicVersion(hidden)
             .setShowWhen(true)
+            .setTimeoutAfter(SHOW_MS)
             .build()
         runCatching { manager.notify(NOTIFICATION_ID, notification) }
     }

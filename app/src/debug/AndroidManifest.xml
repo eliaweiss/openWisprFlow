@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Lets scripts/set-api-key.sh store the AI Gateway key over adb. Only the shell and the
+             system hold DUMP, so other apps on the phone cannot send to it. -->
+        <receiver
+            android:name=".DebugApiKeyReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="app.openwisprflow.debug.SET_API_KEY" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
