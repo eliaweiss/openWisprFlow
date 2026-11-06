@@ -102,6 +102,11 @@
                 android:resource="@xml/dictation_accessibility" />
         </service>
 
+        <!-- Copy on the result notification. -->
+        <receiver
+            android:name=".CopyResultReceiver"
+            android:exported="false" />
+
         <service
             android:name=".CaptureService"
             android:exported="false"

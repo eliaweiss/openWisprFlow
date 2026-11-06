@@ -29,6 +29,12 @@
     <string name="preview_close">Close</string>
     <string name="preview_copied">Copied</string>
 
+    <string name="results_channel">Dictation results</string>
+    <string name="result_dictation">Dictation</string>
+    <string name="result_translation">Translation</string>
+    <string name="result_translation_failed">Translation failed; transcript</string>
+    <string name="result_not_confirmed">Insert not confirmed</string>
+
     <string name="status_enabled">The dictation service is on. Focus a text field in any app and tap the bubble.</string>
     <string name="status_disabled">The dictation service is off.</string>
     <string name="open_accessibility_settings">Open accessibility settings</string>

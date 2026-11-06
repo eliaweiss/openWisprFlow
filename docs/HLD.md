@@ -37,6 +37,7 @@ Gestures on the bubble:
 
 - Tap starts recording. Tap again stops and submits.
 - Long press on the idle bubble starts a translate take: the bubble turns green, and after stop the transcript is cleaned up and translated into the language set in Settings (default Brazilian Portuguese) in one Flash Lite call, then inserted through the same checks. The spoken-word safety net is off for translation; if translation fails, the untranslated transcript is offered for copy, never inserted. History records the target language, and a retry translates again. Live text is not used for translate takes.
+- After every dictation or translation, a silent notification holds the result; tapping it copies the text, in case the field did not take it.
 - Drag past touch slop moves the bubble and does not start dictation.
 - While recording, the bubble shows ■: a tap stops and submits, and a long press cancels. While processing, it shows ✕: a tap cancels. Cancel stops the microphone, deletes the take, aborts any request in flight, and a late result must not insert. The recording notification also has Stop and Cancel.
 
@@ -420,6 +421,8 @@ Auto-insert happens only when every check passes. Otherwise the result goes to t
 6. Sensitive-field exclusions still pass.
 7. On the main thread, mark the session committed, then call `commitText` once.
 8. Confirm from the next selection update. If none shows the inserted text within about a second, the outcome is unknown: do not insert again and do not interrupt with the preview, since the text has usually gone in. History keeps it for copy, marked as not confirmed.
+
+Whatever the outcome (inserted, not confirmed, or preview), every take that produced text also posts a result notification (`ResultNotifier`), so the text can be pasted by hand when an editor dropped it. Tapping the notification copies the text; its buttons are Copy and History. Only the latest result is shown, silently, and its text is hidden on the lock screen. Incognito fields get no notification, as they get no history. The log records the editor's package and the selection updates seen while confirming, so a dropped insert can be traced.
 
 These checks are not a transaction across apps. They are deliberately strict: typing during a take, switching conversation, or rotating the screen (which starts a new input session) all end on the copy preview, which is the intended result.
 

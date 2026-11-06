@@ -88,6 +88,9 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         var awaitingConfirm = false
         var insertAt: Int? = null
         var expectedEnd: Int? = null
+        /** Selection updates seen while waiting for the commit's confirmation, for the log. */
+        var selectionsSeen = 0
+        var lastSelection: String? = null
     }
 
     override fun onServiceConnected() {
@@ -219,7 +222,7 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         )
         session = s
         bubble?.setState(BubbleController.State.RECORDING, translate)
-        AppLog.d(TAG, "session ${s.id} started${if (translate) " (translate)" else ""}")
+        AppLog.d(TAG, "session ${s.id} started${if (translate) " (translate)" else ""} in ${start.packageName}")
 
         // Live audio is held by the transcriber until the vocabulary is known and it connects.
         val key = ApiKeyStore.get(this)
@@ -492,13 +495,13 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         s.insertAt = s.start.context?.absoluteSelectionStart
         s.expectedEnd = s.insertAt?.plus(text.length)
         connection.commitText(text, 1, null)
-        AppLog.d(TAG, "session ${s.id} committed")
+        AppLog.d(TAG, "session ${s.id} committed, expecting cursor ${s.insertAt}..${s.expectedEnd}")
         main.postDelayed({
             if (session === s && s.awaitingConfirm) {
                 // Usually the text did go in and the editor reported it late or differently, so
                 // no pop-up; if it did not, the text is in History to copy.
-                AppLog.d(TAG, "session ${s.id} insert not confirmed")
-                finish(s, HistoryStatus.PREVIEW, finalText = text.trim(), detail = "insert not confirmed")
+                AppLog.d(TAG, "session ${s.id} insert not confirmed, ${s.selectionsSeen} selection updates, last ${s.lastSelection}")
+                finish(s, HistoryStatus.PREVIEW, finalText = text.trim(), detail = NOT_CONFIRMED)
             }
         }, COMMIT_CONFIRM_TIMEOUT_MS)
     }
@@ -506,6 +509,10 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
     private fun onSelectionChanged(newSelStart: Int, newSelEnd: Int) {
         contentRevision++
         val s = session ?: return
+        if (s.awaitingConfirm) {
+            s.selectionsSeen++
+            s.lastSelection = "$newSelStart..$newSelEnd"
+        }
         if (s.awaitingConfirm &&
             InsertionGuard.confirmsCommit(s.insertAt, s.expectedEnd, newSelStart, newSelEnd)
         ) {
@@ -520,10 +527,14 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         preview?.show(text.trim(), reason)
     }
 
-    /** Ends the session and records the take's outcome, unless the field was incognito. */
+    /**
+     * Ends the session and records the take's outcome, unless the field was incognito. Any text
+     * the take produced also goes to the result notification, to copy by hand.
+     */
     private fun finish(s: Session, status: HistoryStatus, finalText: String? = null, detail: String? = null) {
         if (session !== s) return
         endSession(s)
+        if (!finalText.isNullOrBlank() && !s.incognito) notifyResult(s, finalText.trim(), status, detail)
         val take = s.take ?: return
         if (s.incognito) {
             take.file.delete()
@@ -543,6 +554,21 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
                 translateTo = s.translateTo,
             ),
         )
+    }
+
+    private fun notifyResult(s: Session, text: String, status: HistoryStatus, detail: String?) {
+        val translateTo = s.translateTo
+        val title = when {
+            translateTo == null -> getString(R.string.result_dictation)
+            detail == getString(R.string.translation_failed_reason) -> getString(R.string.result_translation_failed)
+            else -> getString(R.string.result_translation)
+        }
+        val state = when {
+            status == HistoryStatus.INSERTED -> getString(R.string.status_inserted)
+            detail == NOT_CONFIRMED -> getString(R.string.result_not_confirmed)
+            else -> getString(R.string.status_preview)
+        }
+        ResultNotifier.show(this, text, title, state)
     }
 
     private fun endSession(s: Session) {
@@ -596,5 +622,6 @@ class DictationAccessibilityService : AccessibilityService(), CaptureService.Lis
         const val TAG = "openWisprFlow"
         const val COMMIT_CONFIRM_TIMEOUT_MS = 1_000L
         const val LIVE_FINISH_TIMEOUT_MS = 8_000L
+        const val NOT_CONFIRMED = "insert not confirmed"
     }
 }
